@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/gethics}
+    username: ${DB_USER:gethics}
+    password: ${DB_PASSWORD:gethics}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

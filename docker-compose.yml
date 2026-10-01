@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: gethics-db
+    environment:
+      POSTGRES_DB: gethics
+      POSTGRES_USER: gethics
+      POSTGRES_PASSWORD: gethics
+    ports:
+      - "5432:5432"
+    volumes:
+      - gethics-data:/var/lib/postgresql/data
+
+volumes:
+  gethics-data:
