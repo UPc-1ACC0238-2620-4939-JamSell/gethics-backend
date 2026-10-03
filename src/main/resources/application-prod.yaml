@@ -7,5 +7,10 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+
 server:
   port: ${PORT:8080}
