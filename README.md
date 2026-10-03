@@ -66,6 +66,27 @@ ALTER TABLE sanitary_events ALTER COLUMN occurred_at DROP NOT NULL;
 
 Una base nueva no requiere ningún paso.
 
+### Cambio de esquema: recordatorios de vacunación (US-13)
+
+US-13 agrega la tabla `reminders`. Con `ddl-auto: update` (`dev`) Hibernate la crea sola, incluida la FK y la restricción única. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearla manualmente antes de desplegar:
+
+```sql
+CREATE TABLE reminders (
+    id                uuid PRIMARY KEY,
+    sanitary_event_id uuid NOT NULL REFERENCES sanitary_events (id),
+    scheduled_for     timestamp(6) NOT NULL,
+    status            varchar(255) NOT NULL CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
+    attempts          integer NOT NULL,
+    sent_at           timestamp(6) with time zone,
+    created_at        timestamp(6) with time zone NOT NULL,
+    CONSTRAINT uk_reminders_event_scheduled_for UNIQUE (sanitary_event_id, scheduled_for)
+);
+```
+
+- `sanitary_event_id` es una FK real hacia `sanitary_events.id` (mismo bounded context). Un evento puede tener varios recordatorios.
+- `UNIQUE (sanitary_event_id, scheduled_for)` es la clave de idempotencia: el mismo recordatorio no se crea dos veces.
+- `attempts` y `sent_at` son atributos técnicos de entrega; los valores de `status` son una decisión de implementación.
+
 ## Variables de entorno
 
 Copia `.env.example` como `.env` y ajusta los valores si usas otra base de datos (por ejemplo Neon o Supabase). **Nunca subas el archivo `.env` al repositorio.**
