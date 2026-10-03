@@ -87,6 +87,44 @@ CREATE TABLE reminders (
 - `UNIQUE (sanitary_event_id, scheduled_for)` es la clave de idempotencia: el mismo recordatorio no se crea dos veces.
 - `attempts` y `sent_at` son atributos técnicos de entrega; los valores de `status` son una decisión de implementación.
 
+### Cambio de esquema: Analytics & Alerts (US-21)
+
+Se agregan las tablas `analytics`, `livestock_trends` y `alerts`. Con `ddl-auto: update` (`dev`) Hibernate las crea solo, incluidas las FK y la restricción única. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearlas manualmente antes de desplegar:
+
+```sql
+CREATE TABLE analytics (
+    id               uuid PRIMARY KEY,
+    owner_id         uuid NOT NULL UNIQUE,
+    last_analysis_at timestamp(6) with time zone NOT NULL,
+    risk_level       varchar(255) NOT NULL CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    created_at       timestamp(6) with time zone NOT NULL
+);
+
+CREATE TABLE livestock_trends (
+    id           uuid PRIMARY KEY,
+    analytics_id uuid NOT NULL REFERENCES analytics (id),
+    type         varchar(255) NOT NULL CHECK (type IN ('SANITARY', 'FINANCIAL', 'COMBINED')),
+    description  text NOT NULL,
+    detected_at  timestamp(6) with time zone NOT NULL,
+    risk_level   varchar(255) NOT NULL CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'))
+);
+
+CREATE TABLE alerts (
+    id         uuid PRIMARY KEY,
+    owner_id   uuid NOT NULL,
+    trend_id   uuid NOT NULL REFERENCES livestock_trends (id),
+    message    text NOT NULL,
+    status     varchar(255) NOT NULL CHECK (status IN ('PENDING', 'SENT', 'READ')),
+    created_at timestamp(6) with time zone NOT NULL
+);
+```
+
+- `analytics.owner_id` es único (un `Analytics` por propietario) y, igual que `alerts.owner_id`, **no** tiene FK: referencia a IAM por id entre bounded contexts.
+- `livestock_trends.analytics_id` y `alerts.trend_id` son FK reales. No hay `UNIQUE(trend_id)`: una tendencia puede tener varias alertas.
+- `livestock_trends.description` y `alerts.message` son `text NOT NULL`, sin longitud máxima (el informe no define ninguna).
+- Las marcas de tiempo son `timestamp with time zone` (`Instant` en Java), la convención técnica del backend; el informe solo dice DATETIME.
+- La generación automática de alertas queda **inactiva** hasta que el equipo defina qué niveles de riesgo alertan (`gethics.analytics.alert-risk-levels`; ver comentarios de `application.yaml`).
+
 ## Variables de entorno
 
 Copia `.env.example` como `.env` y ajusta los valores si usas otra base de datos (por ejemplo Neon o Supabase). **Nunca subas el archivo `.env` al repositorio.**
