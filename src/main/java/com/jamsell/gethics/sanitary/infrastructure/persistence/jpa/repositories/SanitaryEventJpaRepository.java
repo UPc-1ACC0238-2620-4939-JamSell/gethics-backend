@@ -12,6 +12,8 @@ import java.util.UUID;
 
 interface SanitaryEventJpaRepository extends JpaRepository<SanitaryEvent, UUID> {
 
+    List<SanitaryEvent> findByClinicalHistory_AnimalId(UUID animalId);
+
     @Query("""
             select e from SanitaryEvent e join fetch e.clinicalHistory
             where e.status = com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus.SCHEDULED
