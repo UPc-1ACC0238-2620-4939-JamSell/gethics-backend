@@ -5,3 +5,10 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   jpa:
     open-in-view: false
+
+# Valores tecnicos por defecto (no reglas de negocio). El cron del job y el Clock comparten la misma zona.
+gethics:
+  sanitary:
+    reminders:
+      cron: 0 0 8 * * *
+      zone: America/Lima
