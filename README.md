@@ -53,6 +53,78 @@ El proyecto sigue **Domain-Driven Design (DDD)**. Cada bounded context se divide
 
 La API queda disponible en `http://localhost:8080`.
 
+### Cambio de esquema: calendario sanitario (US-12)
+
+`sanitary_events` incorpora `scheduled_date` (fecha de los eventos `SCHEDULED`) y `occurred_at` pasa a ser nullable (los eventos `SCHEDULED` aún no ocurrieron).
+
+El proyecto **no usa Flyway ni Liquibase**: el esquema lo gestiona Hibernate (`ddl-auto: update` en `dev`, `validate` en `prod`). `update` crea la columna nueva, pero no elimina el `NOT NULL` de `occurred_at` en tablas ya existentes. En una base creada antes de US-12 (y en `prod`, antes de desplegar) hay que ejecutar manualmente:
+
+```sql
+ALTER TABLE sanitary_events ADD COLUMN IF NOT EXISTS scheduled_date date;
+ALTER TABLE sanitary_events ALTER COLUMN occurred_at DROP NOT NULL;
+```
+
+Una base nueva no requiere ningún paso.
+
+### Cambio de esquema: recordatorios de vacunación (US-13)
+
+US-13 agrega la tabla `reminders`. Con `ddl-auto: update` (`dev`) Hibernate la crea sola, incluida la FK y la restricción única. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearla manualmente antes de desplegar:
+
+```sql
+CREATE TABLE reminders (
+    id                uuid PRIMARY KEY,
+    sanitary_event_id uuid NOT NULL REFERENCES sanitary_events (id),
+    scheduled_for     timestamp(6) NOT NULL,
+    status            varchar(255) NOT NULL CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
+    attempts          integer NOT NULL,
+    sent_at           timestamp(6) with time zone,
+    created_at        timestamp(6) with time zone NOT NULL,
+    CONSTRAINT uk_reminders_event_scheduled_for UNIQUE (sanitary_event_id, scheduled_for)
+);
+```
+
+- `sanitary_event_id` es una FK real hacia `sanitary_events.id` (mismo bounded context). Un evento puede tener varios recordatorios.
+- `UNIQUE (sanitary_event_id, scheduled_for)` es la clave de idempotencia: el mismo recordatorio no se crea dos veces.
+- `attempts` y `sent_at` son atributos técnicos de entrega; los valores de `status` son una decisión de implementación.
+
+### Cambio de esquema: Analytics & Alerts (US-21)
+
+Se agregan las tablas `analytics`, `livestock_trends` y `alerts`. Con `ddl-auto: update` (`dev`) Hibernate las crea solo, incluidas las FK y la restricción única. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearlas manualmente antes de desplegar:
+
+```sql
+CREATE TABLE analytics (
+    id               uuid PRIMARY KEY,
+    owner_id         uuid NOT NULL UNIQUE,
+    last_analysis_at timestamp(6) with time zone NOT NULL,
+    risk_level       varchar(255) NOT NULL CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    created_at       timestamp(6) with time zone NOT NULL
+);
+
+CREATE TABLE livestock_trends (
+    id           uuid PRIMARY KEY,
+    analytics_id uuid NOT NULL REFERENCES analytics (id),
+    type         varchar(255) NOT NULL CHECK (type IN ('SANITARY', 'FINANCIAL', 'COMBINED')),
+    description  text NOT NULL,
+    detected_at  timestamp(6) with time zone NOT NULL,
+    risk_level   varchar(255) NOT NULL CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'))
+);
+
+CREATE TABLE alerts (
+    id         uuid PRIMARY KEY,
+    owner_id   uuid NOT NULL,
+    trend_id   uuid NOT NULL REFERENCES livestock_trends (id),
+    message    text NOT NULL,
+    status     varchar(255) NOT NULL CHECK (status IN ('PENDING', 'SENT', 'READ')),
+    created_at timestamp(6) with time zone NOT NULL
+);
+```
+
+- `analytics.owner_id` es único (un `Analytics` por propietario) y, igual que `alerts.owner_id`, **no** tiene FK: referencia a IAM por id entre bounded contexts.
+- `livestock_trends.analytics_id` y `alerts.trend_id` son FK reales. No hay `UNIQUE(trend_id)`: una tendencia puede tener varias alertas.
+- `livestock_trends.description` y `alerts.message` son `text NOT NULL`, sin longitud máxima (el informe no define ninguna).
+- Las marcas de tiempo son `timestamp with time zone` (`Instant` en Java), la convención técnica del backend; el informe solo dice DATETIME.
+- La generación automática de alertas queda **inactiva** hasta que el equipo defina qué niveles de riesgo alertan (`gethics.analytics.alert-risk-levels`; ver comentarios de `application.yaml`).
+
 ## Variables de entorno
 
 Copia `.env.example` como `.env` y ajusta los valores si usas otra base de datos (por ejemplo Neon o Supabase). **Nunca subas el archivo `.env` al repositorio.**
