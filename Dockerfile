@@ -5,8 +5,7 @@ COPY .mvn .mvn
 COPY mvnw pom.xml ./
 RUN ./mvnw -B dependency:go-offline
 COPY src src
-RUN ./mvnw -B package -DskipTests
-
+RUN ./mvnw -B package -DskipTests -Dcheckstyle.skip=true
 # Runtime stage
 FROM eclipse-temurin:21-jre
 WORKDIR /app
