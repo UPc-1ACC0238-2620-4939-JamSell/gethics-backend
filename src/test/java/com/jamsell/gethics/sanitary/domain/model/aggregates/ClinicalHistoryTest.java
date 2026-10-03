@@ -51,6 +51,46 @@ class ClinicalHistoryTest {
     }
 
     @Test
+    void registeredEventHasNoScheduledDate() {
+        var event = history.registerEvent(SanitaryEventType.CHECKUP, LocalDateTime.now().minusDays(1), null);
+
+        assertNull(event.getScheduledDate());
+    }
+
+    @Test
+    void schedulesEventWithScheduledDateAndNoOccurredAt() {
+        var date = LocalDate.of(2026, 10, 15);
+
+        var event = history.scheduleEvent(SanitaryEventType.VACCINATION, date, "Brucelosis");
+
+        assertEquals(1, history.getEvents().size());
+        assertSame(event, history.getEvents().get(0));
+        assertSame(history, event.getClinicalHistory());
+        assertEquals(SanitaryEventStatus.SCHEDULED, event.getStatus());
+        assertEquals(date, event.getScheduledDate());
+        assertNull(event.getOccurredAt());
+        assertEquals("Brucelosis", event.getDescription());
+        assertNotNull(event.getCreatedAt());
+    }
+
+    @Test
+    void rejectsNullScheduledDateAndDoesNotAddTheEvent() {
+        assertThrows(NullPointerException.class,
+                () -> history.scheduleEvent(SanitaryEventType.CHECKUP, null, null));
+        assertTrue(history.getEvents().isEmpty());
+    }
+
+    @Test
+    void schedulingAnEventTouchesUpdatedAt() throws InterruptedException {
+        var before = history.getUpdatedAt();
+        Thread.sleep(2);
+
+        history.scheduleEvent(SanitaryEventType.OTHER, LocalDate.now(), null);
+
+        assertTrue(history.getUpdatedAt().isAfter(before));
+    }
+
+    @Test
     void registeringAnEventTouchesUpdatedAt() throws InterruptedException {
         var before = history.getUpdatedAt();
         Thread.sleep(2);

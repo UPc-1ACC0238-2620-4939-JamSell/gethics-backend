@@ -33,8 +33,11 @@ public class SanitaryEvent {
     @Column(nullable = false)
     private SanitaryEventType type;
 
-    @Column(nullable = false)
+    // Solo eventos COMPLETED; null mientras el evento esta SCHEDULED.
     private LocalDateTime occurredAt;
+
+    // Solo eventos SCHEDULED; null en eventos COMPLETED.
+    private LocalDate scheduledDate;
 
     @Column(length = 1000)
     private String description;
@@ -58,5 +61,18 @@ public class SanitaryEvent {
         this.description = description;
         this.status = SanitaryEventStatus.COMPLETED;
         this.createdAt = Instant.now();
+    }
+
+    public static SanitaryEvent schedule(ClinicalHistory clinicalHistory, SanitaryEventType type, LocalDate scheduledDate, String description) {
+        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(scheduledDate, "scheduledDate");
+        var event = new SanitaryEvent();
+        event.clinicalHistory = clinicalHistory;
+        event.type = type;
+        event.scheduledDate = scheduledDate;
+        event.description = description;
+        event.status = SanitaryEventStatus.SCHEDULED;
+        event.createdAt = Instant.now();
+        return event;
     }
 }
