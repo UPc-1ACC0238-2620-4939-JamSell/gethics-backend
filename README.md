@@ -53,6 +53,19 @@ El proyecto sigue **Domain-Driven Design (DDD)**. Cada bounded context se divide
 
 La API queda disponible en `http://localhost:8080`.
 
+### Cambio de esquema: calendario sanitario (US-12)
+
+`sanitary_events` incorpora `scheduled_date` (fecha de los eventos `SCHEDULED`) y `occurred_at` pasa a ser nullable (los eventos `SCHEDULED` aún no ocurrieron).
+
+El proyecto **no usa Flyway ni Liquibase**: el esquema lo gestiona Hibernate (`ddl-auto: update` en `dev`, `validate` en `prod`). `update` crea la columna nueva, pero no elimina el `NOT NULL` de `occurred_at` en tablas ya existentes. En una base creada antes de US-12 (y en `prod`, antes de desplegar) hay que ejecutar manualmente:
+
+```sql
+ALTER TABLE sanitary_events ADD COLUMN IF NOT EXISTS scheduled_date date;
+ALTER TABLE sanitary_events ALTER COLUMN occurred_at DROP NOT NULL;
+```
+
+Una base nueva no requiere ningún paso.
+
 ## Variables de entorno
 
 Copia `.env.example` como `.env` y ajusta los valores si usas otra base de datos (por ejemplo Neon o Supabase). **Nunca subas el archivo `.env` al repositorio.**

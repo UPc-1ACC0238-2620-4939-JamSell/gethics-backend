@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +45,13 @@ public class ClinicalHistory {
 
     public SanitaryEvent registerEvent(SanitaryEventType type, LocalDateTime occurredAt, String description) {
         var event = new SanitaryEvent(this, type, occurredAt, description);
+        events.add(event);
+        updatedAt = Instant.now();
+        return event;
+    }
+
+    public SanitaryEvent scheduleEvent(SanitaryEventType type, LocalDate scheduledDate, String description) {
+        var event = SanitaryEvent.schedule(this, type, scheduledDate, description);
         events.add(event);
         updatedAt = Instant.now();
         return event;
