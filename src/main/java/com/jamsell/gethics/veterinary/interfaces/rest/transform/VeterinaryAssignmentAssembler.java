@@ -26,3 +26,4 @@ public final class VeterinaryAssignmentAssembler {
                 client.location(), client.assignedAt());
     }
 }
+

@@ -13,3 +13,4 @@ public class LivestockClientLocationAdapter implements ClientLocationLookup {
         return Optional.empty();
     }
 }
+

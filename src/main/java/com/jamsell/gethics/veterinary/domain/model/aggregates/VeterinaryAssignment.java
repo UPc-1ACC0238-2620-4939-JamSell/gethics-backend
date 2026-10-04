@@ -59,3 +59,4 @@ public class VeterinaryAssignment {
         return status == VeterinaryAssignmentStatus.ACTIVE;
     }
 }
+

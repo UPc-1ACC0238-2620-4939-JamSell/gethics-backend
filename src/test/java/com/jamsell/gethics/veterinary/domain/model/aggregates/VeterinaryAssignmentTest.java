@@ -39,3 +39,4 @@ class VeterinaryAssignmentTest {
         assertThrows(IllegalArgumentException.class, () -> new VeterinaryAssignment(null, UUID.randomUUID()));
     }
 }
+

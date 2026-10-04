@@ -4,3 +4,4 @@ import java.util.List;
 
 public record AssignedClientsResource(List<AssignedClientResource> clients, String message) {
 }
+

@@ -29,3 +29,4 @@ public class VeterinaryAssignmentCommandServiceImpl implements VeterinaryAssignm
         return assignmentRepository.save(assignment);
     }
 }
+

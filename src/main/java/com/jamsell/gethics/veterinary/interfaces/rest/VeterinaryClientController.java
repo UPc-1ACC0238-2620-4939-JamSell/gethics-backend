@@ -61,3 +61,4 @@ public class VeterinaryClientController {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", exception.getMessage()));
     }
 }
+
