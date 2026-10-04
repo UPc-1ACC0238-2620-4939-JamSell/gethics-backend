@@ -1,16 +1,24 @@
 package com.jamsell.gethics.sanitary.interfaces.rest;
 
 import com.jamsell.gethics.sanitary.domain.exceptions.FutureEventDateException;
+import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException;
+import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
+import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
+import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
 import com.jamsell.gethics.sanitary.domain.services.ClinicalHistoryCommandService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -61,7 +69,7 @@ class SanitaryEventControllerTest {
 
     @Test
     void dateAfterTodayReturns400WithValidationMessage() throws Exception {
-        when(commandService.handle(any())).thenThrow(new FutureEventDateException());
+        when(commandService.handle(any(RegisterSanitaryEventCommand.class))).thenThrow(new FutureEventDateException());
         var tomorrow = LocalDate.now().plusDays(1).atTime(8, 0, 1);
 
         postJson("{\"type\":\"TREATMENT\",\"occurredAt\":\"" + tomorrow + "\"}")
@@ -109,5 +117,111 @@ class SanitaryEventControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"CHECKUP\",\"occurredAt\":\"2025-01-01T10:00:00\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ---- Programacion de eventos (US-13: crea el evento SCHEDULED que luego dispara el recordatorio) ----
+
+    private ResultActions postJson(String path, String body) throws Exception {
+        return mockMvc.perform(post(url + path).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body));
+    }
+
+    @ParameterizedTest
+    @EnumSource(SanitaryEventType.class)
+    void schedulesAnyEventTypeAndReturns201(SanitaryEventType type) throws Exception {
+        var date = LocalDate.now().plusDays(3);
+        var event = new ClinicalHistory(animalId).scheduleEvent(type, date, "Plan", LocalDate.now());
+        when(commandService.handle(any(ScheduleSanitaryEventCommand.class))).thenReturn(event);
+
+        postJson("/scheduled", "{\"type\":\"" + type + "\",\"scheduledDate\":\"" + date + "\",\"description\":\"Plan\"}")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.animalId").value(animalId.toString()))
+                .andExpect(jsonPath("$.type").value(type.name()))
+                .andExpect(jsonPath("$.scheduledDate").value(date.toString()))
+                .andExpect(jsonPath("$.occurredAt").doesNotExist())
+                .andExpect(jsonPath("$.status").value("SCHEDULED"));
+
+        verify(commandService).handle(new ScheduleSanitaryEventCommand(animalId, type, date, "Plan"));
+    }
+
+    @Test
+    void schedulingInThePastReturns400WithoutReachingTheService() throws Exception {
+        postJson("/scheduled", "{\"type\":\"VACCINATION\",\"scheduledDate\":\"" + LocalDate.now().minusDays(1) + "\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La fecha programada no puede ser anterior a hoy."));
+        verifyNoInteractions(commandService);
+    }
+
+    @Test
+    void pastScheduledDateDetectedByTheDomainReturns400() throws Exception {
+        when(commandService.handle(any(ScheduleSanitaryEventCommand.class))).thenThrow(new PastScheduledDateException());
+
+        postJson("/scheduled", "{\"type\":\"VACCINATION\",\"scheduledDate\":\"" + LocalDate.now() + "\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La fecha programada no puede ser anterior a hoy."));
+    }
+
+    @Test
+    void schedulingWithoutDateReturns400() throws Exception {
+        postJson("/scheduled", "{\"type\":\"VACCINATION\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La fecha programada es obligatoria."));
+        verifyNoInteractions(commandService);
+    }
+
+    // ---- Registro como aplicado de un evento programado (US-13, Escenario 2) ----
+
+    @Test
+    void completesTheScheduledEventAndReturns200() throws Exception {
+        var scheduledDate = LocalDate.now().plusDays(3);
+        var occurredAt = LocalDate.now().atTime(9, 0, 15);
+        var event = new ClinicalHistory(animalId).scheduleEvent(SanitaryEventType.VACCINATION, scheduledDate, "Aftosa", LocalDate.now());
+        var eventId = UUID.randomUUID();
+        ReflectionTestUtils.setField(event, "id", eventId);
+        event.complete(occurredAt, null, LocalDate.now());
+        when(commandService.handle(any(CompleteScheduledEventCommand.class))).thenReturn(event);
+
+        postJson("/" + eventId + "/complete", "{\"occurredAt\":\"" + occurredAt + "\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(eventId.toString()))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.occurredAt").value(occurredAt.toString()))
+                .andExpect(jsonPath("$.scheduledDate").value(scheduledDate.toString()))
+                .andExpect(jsonPath("$.description").value("Aftosa"));
+
+        verify(commandService).handle(new CompleteScheduledEventCommand(animalId, eventId, occurredAt, null));
+    }
+
+    @Test
+    void completingAnUnknownEventReturns404() throws Exception {
+        when(commandService.handle(any(CompleteScheduledEventCommand.class))).thenThrow(new SanitaryEventNotFoundException());
+
+        postJson("/" + UUID.randomUUID() + "/complete", "{\"occurredAt\":\"2025-01-01T10:00:00\"}")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("El evento sanitario no existe para este animal."));
+    }
+
+    @Test
+    void completingAnEventThatIsNotScheduledReturns409() throws Exception {
+        when(commandService.handle(any(CompleteScheduledEventCommand.class))).thenThrow(new SanitaryEventNotScheduledException());
+
+        postJson("/" + UUID.randomUUID() + "/complete", "{\"occurredAt\":\"2025-01-01T10:00:00\"}")
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void completingWithAFutureDateReturns400() throws Exception {
+        when(commandService.handle(any(CompleteScheduledEventCommand.class))).thenThrow(new FutureEventDateException());
+
+        postJson("/" + UUID.randomUUID() + "/complete", "{\"occurredAt\":\"" + LocalDate.now().plusDays(1).atTime(8, 0, 1) + "\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La fecha del evento no puede ser posterior a hoy."));
+    }
+
+    @Test
+    void completingWithoutOccurredAtReturns400() throws Exception {
+        postJson("/" + UUID.randomUUID() + "/complete", "{}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La fecha de aplicacion es obligatoria."));
+        verifyNoInteractions(commandService);
     }
 }

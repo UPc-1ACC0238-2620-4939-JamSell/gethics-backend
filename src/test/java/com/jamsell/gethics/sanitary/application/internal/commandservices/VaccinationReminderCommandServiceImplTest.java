@@ -31,6 +31,9 @@ import static org.mockito.Mockito.*;
 
 class VaccinationReminderCommandServiceImplTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2026, 1, 1);
+
     private static final ZoneId LIMA = ZoneId.of("America/Lima");
     // 08:00 en Lima
     private static final Instant NOW = Instant.parse("2026-10-02T13:00:00Z");
@@ -51,7 +54,7 @@ class VaccinationReminderCommandServiceImplTest {
     }
 
     private SanitaryEvent vaccinationIn(int days) {
-        return history.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(days), "Aftosa");
+        return history.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(days), "Aftosa", SCHEDULED_ON);
     }
 
     private void candidatesAre(SanitaryEvent... events) {
@@ -110,7 +113,7 @@ class VaccinationReminderCommandServiceImplTest {
         var cancelled = vaccinationIn(3);
         ReflectionTestUtils.setField(cancelled, "status", SanitaryEventStatus.CANCELLED);
         candidatesAre(vaccinationIn(2), vaccinationIn(4),
-                history.scheduleEvent(SanitaryEventType.TREATMENT, TODAY.plusDays(3), null), completed, cancelled);
+                history.scheduleEvent(SanitaryEventType.TREATMENT, TODAY.plusDays(3), null, SCHEDULED_ON), completed, cancelled);
 
         service.handle(COMMAND);
 

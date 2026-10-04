@@ -19,6 +19,9 @@ import static org.mockito.Mockito.when;
 
 class ClinicalHistoryQueryServiceImplTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2026, 1, 1);
+
     private final ClinicalHistoryQueryRepository repository = mock(ClinicalHistoryQueryRepository.class);
     private final ClinicalHistoryQueryServiceImpl service = new ClinicalHistoryQueryServiceImpl(repository);
     private final UUID animalId = UUID.randomUUID();
@@ -42,7 +45,7 @@ class ClinicalHistoryQueryServiceImplTest {
 
     @Test
     void sortsChronologicallyAndLeavesTheRepositoryListUntouched() {
-        var future = history.scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2027, 1, 1), null);
+        var future = history.scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2027, 1, 1), null, SCHEDULED_ON);
         var recent = history.registerEvent(SanitaryEventType.TREATMENT, LocalDateTime.of(2026, 3, 1, 9, 0), null);
         var old = history.registerEvent(SanitaryEventType.DISEASE, LocalDateTime.of(2025, 1, 1, 9, 0), null);
         var immutable = List.of(future, recent, old);

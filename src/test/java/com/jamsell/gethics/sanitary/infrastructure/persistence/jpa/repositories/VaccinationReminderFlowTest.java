@@ -1,14 +1,17 @@
 package com.jamsell.gethics.sanitary.infrastructure.persistence.jpa.repositories;
 
+import com.jamsell.gethics.sanitary.application.internal.commandservices.ClinicalHistoryCommandServiceImpl;
 import com.jamsell.gethics.sanitary.application.internal.commandservices.VaccinationReminderCommandServiceImpl;
 import com.jamsell.gethics.sanitary.application.internal.outboundservices.NotificationDeliveryException;
 import com.jamsell.gethics.sanitary.application.internal.outboundservices.NotificationService;
 import com.jamsell.gethics.sanitary.application.internal.outboundservices.VaccinationReminderNotification;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
+import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ProcessVaccinationRemindersCommand;
 import com.jamsell.gethics.sanitary.domain.model.entities.Reminder;
 import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.ReminderStatus;
+import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
 import com.jamsell.gethics.sanitary.domain.repositories.ClinicalHistoryRepository;
 import com.jamsell.gethics.sanitary.domain.services.SanitaryScheduleService;
@@ -39,12 +42,13 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({VaccinationReminderFlowTest.TestBeans.class, VaccinationReminderCommandServiceImpl.class,
+@Import({VaccinationReminderFlowTest.TestBeans.class, VaccinationReminderCommandServiceImpl.class, ClinicalHistoryCommandServiceImpl.class,
         ReminderRepositoryImpl.class, ReminderCandidateQueryRepositoryImpl.class, ClinicalHistoryRepositoryImpl.class})
 class VaccinationReminderFlowTest {
 
     // 08:00 en Lima: "hoy" = 2042-06-07, por lo que se avisa de las vacunas del 2042-06-10.
     private static final Instant NOW = Instant.parse("2042-06-07T13:00:00Z");
+    private static final LocalDate TODAY = LocalDate.of(2042, 6, 7);
     private static final LocalDate EVENT_DATE = LocalDate.of(2042, 6, 10);
     private static final ProcessVaccinationRemindersCommand COMMAND = new ProcessVaccinationRemindersCommand();
 
@@ -90,11 +94,13 @@ class VaccinationReminderFlowTest {
     @Autowired
     ClinicalHistoryRepository histories;
     @Autowired
+    ClinicalHistoryCommandServiceImpl clinicalHistoryCommands;
+    @Autowired
     EntityManager em;
 
     private SanitaryEvent seedScheduledVaccination() {
         var history = new ClinicalHistory(UUID.randomUUID());
-        var event = history.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "Aftosa");
+        var event = history.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "Aftosa", TODAY);
         histories.save(history);
         em.clear();
         return event;
@@ -131,18 +137,43 @@ class VaccinationReminderFlowTest {
         assertEquals(1, remindersOf(event).size());
     }
 
+    /** Registra como aplicada la vacuna programada mediante la transicion real SCHEDULED -> COMPLETED. */
+    private void applyVaccination(SanitaryEvent event) {
+        clinicalHistoryCommands.handle(new CompleteScheduledEventCommand(
+                event.getClinicalHistory().getAnimalId(), event.getId(), TODAY.atTime(7, 30), null));
+        em.clear();
+    }
+
     @Test
     void completedEventSendsNoNotification() {
         var event = seedScheduledVaccination();
-        // No existe aun la transicion SCHEDULED -> COMPLETED: se simula el estado en la BD.
-        em.createNativeQuery("update sanitary_events set status = 'COMPLETED' where id = :id")
-                .setParameter("id", event.getId()).executeUpdate();
-        em.clear();
+        applyVaccination(event);
 
         service.handle(COMMAND);
 
         assertEquals(0, notifications.sentFor(event.getId()));
         assertEquals(0, remindersOf(event).size());
+        var stored = em.find(SanitaryEvent.class, event.getId());
+        assertEquals(SanitaryEventStatus.COMPLETED, stored.getStatus());
+        assertEquals(EVENT_DATE, stored.getScheduledDate());
+    }
+
+    @Test
+    void failedReminderIsNotRetriedOnceTheVaccinationWasApplied() {
+        var event = seedScheduledVaccination();
+        notifications.failingEvents.add(event.getId());
+        service.handle(COMMAND);
+        assertEquals(ReminderStatus.FAILED, remindersOf(event).getFirst().getStatus());
+        notifications.failingEvents.clear();
+
+        applyVaccination(event);
+        service.handle(COMMAND);
+
+        assertEquals(0, notifications.sentFor(event.getId()));
+        var reminders = remindersOf(event);
+        assertEquals(1, reminders.size());
+        assertEquals(ReminderStatus.FAILED, reminders.getFirst().getStatus());
+        assertEquals(1, reminders.getFirst().getAttempts());
     }
 
     @Test

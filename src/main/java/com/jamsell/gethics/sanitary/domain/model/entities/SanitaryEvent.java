@@ -1,6 +1,8 @@
 package com.jamsell.gethics.sanitary.domain.model.entities;
 
 import com.jamsell.gethics.sanitary.domain.exceptions.FutureEventDateException;
+import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException;
+import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
@@ -36,7 +38,7 @@ public class SanitaryEvent {
     // Solo eventos COMPLETED; null mientras el evento esta SCHEDULED.
     private LocalDateTime occurredAt;
 
-    // Solo eventos SCHEDULED; null en eventos COMPLETED.
+    // Fecha planificada: la tienen los eventos programados y se conserva al completarlos; null en los registrados por US-11.
     private LocalDate scheduledDate;
 
     @Column(length = 1000)
@@ -63,9 +65,14 @@ public class SanitaryEvent {
         this.createdAt = Instant.now();
     }
 
-    public static SanitaryEvent schedule(ClinicalHistory clinicalHistory, SanitaryEventType type, LocalDate scheduledDate, String description) {
+    /** {@code today} lo aporta Application desde el Clock: un evento no puede programarse en una fecha ya vencida. */
+    public static SanitaryEvent schedule(ClinicalHistory clinicalHistory, SanitaryEventType type, LocalDate scheduledDate,
+                                         String description, LocalDate today) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(scheduledDate, "scheduledDate");
+        if (scheduledDate.isBefore(Objects.requireNonNull(today, "today"))) {
+            throw new PastScheduledDateException();
+        }
         var event = new SanitaryEvent();
         event.clinicalHistory = clinicalHistory;
         event.type = type;
@@ -74,5 +81,24 @@ public class SanitaryEvent {
         event.status = SanitaryEventStatus.SCHEDULED;
         event.createdAt = Instant.now();
         return event;
+    }
+
+    /**
+     * Registra como aplicado ESTE evento programado (SCHEDULED -> COMPLETED): no crea otro evento y conserva
+     * {@code scheduledDate}. Sin {@code description} se mantiene la de la programacion.
+     */
+    public void complete(LocalDateTime occurredAt, String description, LocalDate today) {
+        Objects.requireNonNull(occurredAt, "occurredAt");
+        if (status != SanitaryEventStatus.SCHEDULED) {
+            throw new SanitaryEventNotScheduledException();
+        }
+        if (occurredAt.toLocalDate().isAfter(Objects.requireNonNull(today, "today"))) {
+            throw new FutureEventDateException();
+        }
+        this.occurredAt = occurredAt;
+        if (description != null) {
+            this.description = description;
+        }
+        this.status = SanitaryEventStatus.COMPLETED;
     }
 }

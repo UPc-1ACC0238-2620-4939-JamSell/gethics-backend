@@ -19,6 +19,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ClinicalHistoryChronologicalComparatorTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2020, 1, 1);
+
     private final ClinicalHistory history = new ClinicalHistory(UUID.randomUUID());
 
     private SanitaryEvent completed(LocalDateTime occurredAt) {
@@ -26,7 +29,7 @@ class ClinicalHistoryChronologicalComparatorTest {
     }
 
     private SanitaryEvent scheduled(LocalDate date) {
-        return history.scheduleEvent(SanitaryEventType.CHECKUP, date, "scheduled " + date);
+        return history.scheduleEvent(SanitaryEventType.CHECKUP, date, "scheduled " + date, SCHEDULED_ON);
     }
 
     private SanitaryEvent withStatus(SanitaryEvent event, SanitaryEventStatus status) {

@@ -29,6 +29,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WithMockUser
 class SanitaryCalendarControllerTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2026, 10, 1);
+
     private static final String URL = "/api/v1/sanitary-calendar";
 
     @Autowired
@@ -45,8 +48,8 @@ class SanitaryCalendarControllerTest {
     void returnsScheduledEventsOfTheMonthWithoutMessage() throws Exception {
         var animalId = UUID.randomUUID();
         var history = new ClinicalHistory(animalId);
-        var vaccination = history.scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2026, 10, 5), "Aftosa");
-        var checkup = history.scheduleEvent(SanitaryEventType.CHECKUP, LocalDate.of(2026, 10, 20), null);
+        var vaccination = history.scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2026, 10, 5), "Aftosa", SCHEDULED_ON);
+        var checkup = history.scheduleEvent(SanitaryEventType.CHECKUP, LocalDate.of(2026, 10, 20), null, SCHEDULED_ON);
         when(repository.findScheduledBetween(any(), any())).thenReturn(List.of(vaccination, checkup));
 
         getCalendar("?year=2026&month=10")

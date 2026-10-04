@@ -15,9 +15,9 @@ import java.util.Objects;
  * consultas de los repositorios solo preseleccionan candidatos. La orquestacion (persistir, notificar, reintentar) es de
  * la capa Application.
  * <p>
- * Limitacion conocida (US-13, Escenario 2): solo se considera "aplicada" la vacuna cuyo MISMO evento este COMPLETED. Hoy
- * no existe la transicion SCHEDULED -> COMPLETED y no se deduce por animal/tipo/fecha que un evento COMPLETED de US-11
- * corresponda a uno programado.
+ * US-13, Escenario 2: una vacuna se considera "aplicada" cuando su MISMO evento pasa SCHEDULED -> COMPLETED
+ * ({@code POST .../sanitary-events/{eventId}/complete}); desde entonces no genera recordatorio ni reintenta uno FAILED.
+ * No se deduce por animal/tipo/fecha que un evento COMPLETED registrado aparte por US-11 corresponda a uno programado.
  */
 public class SanitaryScheduleService {
 

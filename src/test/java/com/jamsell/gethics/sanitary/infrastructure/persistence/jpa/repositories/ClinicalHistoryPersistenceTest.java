@@ -6,6 +6,7 @@ import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventC
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
 import com.jamsell.gethics.sanitary.domain.repositories.ClinicalHistoryRepository;
+import com.jamsell.gethics.sanitary.infrastructure.configuration.SanitaryReminderConfiguration;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Corre contra el PostgreSQL configurado en application-dev.yaml (en CI, el servicio postgres:16 del workflow). Cada test hace rollback. */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({ClinicalHistoryCommandServiceImpl.class, ClinicalHistoryRepositoryImpl.class})
+@Import({ClinicalHistoryCommandServiceImpl.class, ClinicalHistoryRepositoryImpl.class, SanitaryReminderConfiguration.class})
 class ClinicalHistoryPersistenceTest {
 
     @Autowired
