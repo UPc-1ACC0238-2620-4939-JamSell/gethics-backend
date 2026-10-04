@@ -135,6 +135,25 @@ CREATE TABLE alerts (
 - Las marcas de tiempo son `timestamp with time zone` (`Instant` en Java), la convención técnica del backend; el informe solo dice DATETIME.
 - La generación automática de alertas queda **inactiva** hasta que el equipo defina qué niveles de riesgo alertan (`gethics.analytics.alert-risk-levels`; ver comentarios de `application.yaml`).
 
+### Flujo de US-21 (alertas automáticas por tendencias)
+
+```
+TrendAnalysisJob (cron gethics.analytics.analysis.cron; deshabilitado por defecto)
+  -> TrendAnalysisCommandService
+       -> cada TrendDetector registrado (hoy: ninguno)
+            -> LivestockTrendCommandService: persiste la tendencia
+                 -> RiskAlertCommandService + AlertRiskPolicy: crea la Alert (PENDING) si el nivel es alertable
+       -> AlertDispatchCommandService: envía las Alert PENDING por PushNotificationService (SENT si funciona)
+```
+
+- **No existe ningún algoritmo de detección.** `TrendDetector` es un puerto sin implementación: Trello no define indicadores, ventana temporal, valores normales, fórmula de anomalía ni umbral. Sin detectores el análisis se ejecuta, lo registra en el log, no crea tendencias ni alertas y despacha igualmente las alertas PENDING de ejecuciones anteriores.
+- `gethics.analytics.alert-risk-levels` decide qué niveles de riesgo **ya clasificados** generan alerta; **no** es el "umbral definido" de Trello.
+- El cron no tiene valor por defecto (la periodicidad no está definida): sin configurarlo el job no se programa (`Scheduled.CRON_DISABLED`).
+- Cada tendencia que devuelve un detector se registra como nueva: no hay deduplicación entre tendencias porque "el mismo patrón" no está definido; es responsabilidad del detector no repetir una anomalía ya informada.
+- Si el push falla, la alerta queda PENDING y se reintenta en cada ejecución, sin límite de reintentos (no está definido).
+- **Bloqueos:** definición del detector y del umbral (negocio); el push es simulado (`LoggingPushNotificationAdapter`) porque faltan Livestock (animal → propietario), device tokens en IAM y un proveedor push (FCM u otro).
+- No hay cambio de esquema.
+
 ## Variables de entorno
 
 Copia `.env.example` como `.env` y ajusta los valores si usas otra base de datos (por ejemplo Neon o Supabase). **Nunca subas el archivo `.env` al repositorio.**

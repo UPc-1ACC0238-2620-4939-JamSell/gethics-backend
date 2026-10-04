@@ -12,8 +12,21 @@ management:
       exposure:
         include: health,info
 
+# Valores tecnicos por defecto (no reglas de negocio). El cron del job y el Clock comparten la misma zona.
 gethics:
   sanitary:
     reminders:
       cron: 0 0 8 * * *
       zone: America/Lima
+
+# Analytics & Alerts: niveles de riesgo que generan una alerta (gethics.analytics.alert-risk-levels, lista de RiskLevel
+# en mayusculas: LOW, MEDIUM, HIGH, CRITICAL; tambien GETHICS_ANALYTICS_ALERT_RISK_LEVELS=HIGH,CRITICAL como variable
+# de entorno). DECISION PENDIENTE DEL NEGOCIO: el informe no define que niveles disparan alertas, por eso NO hay valor
+# por defecto. Ausente o vacio = ningun nivel genera alerta (generacion automatica inactiva) y la aplicacion arranca igual.
+# Es una politica POSTERIOR a la clasificacion: no es el "umbral definido" de US-21 (indicadores -> anomalia), que
+# tampoco esta definido.
+#
+# Analisis periodico de tendencias (gethics.analytics.analysis.cron, expresion cron de Spring; tambien
+# GETHICS_ANALYTICS_ANALYSIS_CRON). La periodicidad no la define el negocio, por eso NO hay valor por defecto: ausente =
+# job deshabilitado ("-", Scheduled.CRON_DISABLED). Sin ningun TrendDetector (hoy no existe ninguno) cada ejecucion no
+# registra tendencias y solo despacha las alertas PENDING.

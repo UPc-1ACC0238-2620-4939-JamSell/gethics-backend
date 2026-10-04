@@ -17,7 +17,8 @@ import org.springframework.stereotype.Service;
  * despues del push y antes de guardar SENT, la alerta se reenviara en la siguiente ejecucion.
  * <p>
  * Deliberadamente NO es {@code @Transactional}: cada guardado confirma por separado y el envio no ocurre dentro de una
- * transaccion de base de datos. Nada lo invoca todavia de forma periodica: no existe un productor real de alertas.
+ * transaccion de base de datos. Lo invoca el analisis periodico ({@code TrendAnalysisCommandServiceImpl}) al final de cada
+ * ejecucion. No hay limite de reintentos: una alerta cuyo envio falla siempre se reintenta en cada ejecucion.
  */
 @Slf4j
 @Service

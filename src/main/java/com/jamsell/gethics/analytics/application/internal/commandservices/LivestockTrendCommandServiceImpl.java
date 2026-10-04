@@ -11,8 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Registra un resultado de analisis ya CLASIFICADO (nada se calcula aqui) y delega la generacion de la alerta. Sustituye,
- * hasta que exista el clasificador real, la entrada del futuro AnalyzeLivestockTrendCommandHandler.
+ * Registra un resultado de analisis ya CLASIFICADO (nada se calcula aqui) y delega la generacion de la alerta. Lo invoca
+ * el analisis periodico por cada tendencia que devuelve un {@code TrendDetector} (hoy no existe ninguno).
  * <p>
  * Limitaciones conocidas: (1) registrar dos veces el mismo resultado crea dos tendencias: no hay una clave natural que las
  * identifique como "el mismo patron" (definicion pendiente); (2) la busqueda-o-creacion del Analytics del propietario no

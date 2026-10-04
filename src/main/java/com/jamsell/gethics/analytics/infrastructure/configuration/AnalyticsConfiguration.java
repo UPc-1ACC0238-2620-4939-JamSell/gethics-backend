@@ -6,10 +6,13 @@ import com.jamsell.gethics.analytics.domain.services.TrendAnalysisService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.List;
 
+// Scheduling propio: el TrendAnalysisJob no depende de que otro bounded context lo habilite.
 @Configuration
+@EnableScheduling
 public class AnalyticsConfiguration {
 
     @Bean
