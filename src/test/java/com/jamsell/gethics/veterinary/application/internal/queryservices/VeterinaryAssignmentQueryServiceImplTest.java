@@ -49,3 +49,4 @@ class VeterinaryAssignmentQueryServiceImplTest {
         assertEquals("Jauja, Junin", result.get(0).location());
     }
 }
+
