@@ -31,6 +31,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WithMockUser
 class ClinicalHistoryControllerTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2026, 1, 1);
+
     private final UUID animalId = UUID.randomUUID();
     private final String url = "/api/v1/animals/" + animalId + "/clinical-history";
 
@@ -43,7 +46,7 @@ class ClinicalHistoryControllerTest {
     @Test
     void returnsAllEventsInChronologicalOrderMixingCompletedAndScheduled() throws Exception {
         var history = new ClinicalHistory(animalId);
-        var future = history.scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2027, 1, 20), "Brucelosis");
+        var future = history.scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2027, 1, 20), "Brucelosis", SCHEDULED_ON);
         var recent = history.registerEvent(SanitaryEventType.TREATMENT, LocalDateTime.of(2026, 3, 1, 10, 0), "Ivermectina");
         var old = history.registerEvent(SanitaryEventType.VACCINATION, LocalDateTime.of(2025, 12, 1, 8, 30), "Aftosa");
         when(repository.findEventsByAnimalId(animalId)).thenReturn(List.of(future, recent, old));

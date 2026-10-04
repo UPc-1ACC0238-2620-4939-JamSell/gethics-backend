@@ -32,6 +32,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @Import({SanitaryCalendarQueryServiceImpl.class, SanitaryCalendarQueryRepositoryImpl.class, ClinicalHistoryRepositoryImpl.class})
 class SanitaryCalendarPersistenceTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.MIN;
+
     private static final LocalDate MARCH = LocalDate.of(2041, 3, 1);
 
     @Autowired
@@ -66,9 +69,9 @@ class SanitaryCalendarPersistenceTest {
     void returnsSeededScheduledEventsOfTheMonthSortedByDateAcrossAnimals() {
         var cow = history();
         var bull = history();
-        var late = cow.scheduleEvent(SanitaryEventType.VACCINATION, MARCH.plusDays(19), "Aftosa");
-        var early = cow.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(2), null);
-        var middle = bull.scheduleEvent(SanitaryEventType.TREATMENT, MARCH.plusDays(10), "Ivermectina");
+        var late = cow.scheduleEvent(SanitaryEventType.VACCINATION, MARCH.plusDays(19), "Aftosa", SCHEDULED_ON);
+        var early = cow.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(2), null, SCHEDULED_ON);
+        var middle = bull.scheduleEvent(SanitaryEventType.TREATMENT, MARCH.plusDays(10), "Ivermectina", SCHEDULED_ON);
         persist(cow);
         persist(bull);
 
@@ -85,10 +88,10 @@ class SanitaryCalendarPersistenceTest {
     @Test
     void includesFirstAndLastDayAndExcludesAdjacentMonths() {
         var h = history();
-        var february = h.scheduleEvent(SanitaryEventType.OTHER, MARCH.minusDays(1), "febrero");
-        var firstDay = h.scheduleEvent(SanitaryEventType.OTHER, MARCH, "primer dia");
-        var lastDay = h.scheduleEvent(SanitaryEventType.OTHER, MARCH.withDayOfMonth(31), "ultimo dia");
-        var april = h.scheduleEvent(SanitaryEventType.OTHER, MARCH.plusMonths(1), "abril");
+        var february = h.scheduleEvent(SanitaryEventType.OTHER, MARCH.minusDays(1), "febrero", SCHEDULED_ON);
+        var firstDay = h.scheduleEvent(SanitaryEventType.OTHER, MARCH, "primer dia", SCHEDULED_ON);
+        var lastDay = h.scheduleEvent(SanitaryEventType.OTHER, MARCH.withDayOfMonth(31), "ultimo dia", SCHEDULED_ON);
+        var april = h.scheduleEvent(SanitaryEventType.OTHER, MARCH.plusMonths(1), "abril", SCHEDULED_ON);
         persist(h);
 
         var returned = calendar(2041, 3);
@@ -101,7 +104,7 @@ class SanitaryCalendarPersistenceTest {
     void excludesCompletedEvents() {
         var h = history();
         var completed = h.registerEvent(SanitaryEventType.VACCINATION, LocalDateTime.of(2020, 3, 10, 9, 0), "realizado");
-        var scheduled = h.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(5), "programado");
+        var scheduled = h.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(5), "programado", SCHEDULED_ON);
         persist(h);
 
         var returned = calendar(2041, 3);
@@ -112,8 +115,8 @@ class SanitaryCalendarPersistenceTest {
     @Test
     void excludesCancelledEvents() {
         var h = history();
-        var cancelled = h.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(5), "cancelado");
-        var active = h.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(6), "vigente");
+        var cancelled = h.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(5), "cancelado", SCHEDULED_ON);
+        var active = h.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(6), "vigente", SCHEDULED_ON);
         persist(h);
         // No existe comportamiento de cancelacion (fuera de alcance): se simula directamente en la BD.
         em.createNativeQuery("update sanitary_events set status = 'CANCELLED' where id = :id")
@@ -128,7 +131,7 @@ class SanitaryCalendarPersistenceTest {
     @Test
     void scheduledEventIsPersistedWithoutOccurredAt() {
         var h = history();
-        var scheduled = h.scheduleEvent(SanitaryEventType.DISEASE, MARCH.plusDays(1), "x");
+        var scheduled = h.scheduleEvent(SanitaryEventType.DISEASE, MARCH.plusDays(1), "x", SCHEDULED_ON);
         persist(h);
 
         var found = calendar(2041, 3).stream().filter(e -> e.getId().equals(scheduled.getId())).findFirst().orElseThrow();
@@ -140,8 +143,8 @@ class SanitaryCalendarPersistenceTest {
     @Test
     void technicalLimitsOfThePeriodRoundTripThroughPostgres() {
         var h = history();
-        var atMin = h.scheduleEvent(SanitaryEventType.OTHER, LocalDate.of(-4712, 1, 1), "limite inferior");
-        var atMax = h.scheduleEvent(SanitaryEventType.OTHER, LocalDate.of(5_874_896, 12, 31), "limite superior");
+        var atMin = h.scheduleEvent(SanitaryEventType.OTHER, LocalDate.of(-4712, 1, 1), "limite inferior", SCHEDULED_ON);
+        var atMax = h.scheduleEvent(SanitaryEventType.OTHER, LocalDate.of(5_874_896, 12, 31), "limite superior", SCHEDULED_ON);
         persist(h);
 
         assertEquals(List.of(atMin.getId()), returnedAmong(calendar(-4712, 1), atMin, atMax));

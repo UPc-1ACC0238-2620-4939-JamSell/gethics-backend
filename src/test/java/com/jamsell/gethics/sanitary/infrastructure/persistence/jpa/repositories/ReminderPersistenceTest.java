@@ -33,6 +33,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @Import({ReminderRepositoryImpl.class, ReminderCandidateQueryRepositoryImpl.class, ClinicalHistoryRepositoryImpl.class})
 class ReminderPersistenceTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2042, 1, 1);
+
     private static final LocalDate EVENT_DATE = LocalDate.of(2042, 6, 10);
     private static final LocalDateTime REMINDER_TIME = LocalDate.of(2042, 6, 7).atStartOfDay();
     private static final LocalDate TODAY = LocalDate.of(2042, 6, 7);
@@ -70,7 +73,7 @@ class ReminderPersistenceTest {
     @Test
     void vaccinationScheduledForTheEventDateIsACandidate() {
         var h = history();
-        var due = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "Aftosa");
+        var due = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "Aftosa", SCHEDULED_ON);
         persist(h);
 
         var found = candidates.findVaccinationsAwaitingReminder(EVENT_DATE, REMINDER_TIME).stream()
@@ -82,8 +85,8 @@ class ReminderPersistenceTest {
     @Test
     void eventsOnOtherDatesAreNotCandidates() {
         var h = history();
-        var twoDays = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE.minusDays(1), null);
-        var fourDays = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE.plusDays(1), null);
+        var twoDays = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE.minusDays(1), null, SCHEDULED_ON);
+        var fourDays = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE.plusDays(1), null, SCHEDULED_ON);
         persist(h);
 
         assertEquals(List.of(), candidateIdsAmong(twoDays, fourDays));
@@ -92,9 +95,9 @@ class ReminderPersistenceTest {
     @Test
     void otherEventTypesAreNotCandidates() {
         var h = history();
-        var treatment = h.scheduleEvent(SanitaryEventType.TREATMENT, EVENT_DATE, null);
-        var checkup = h.scheduleEvent(SanitaryEventType.CHECKUP, EVENT_DATE, null);
-        var vaccination = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null);
+        var treatment = h.scheduleEvent(SanitaryEventType.TREATMENT, EVENT_DATE, null, SCHEDULED_ON);
+        var checkup = h.scheduleEvent(SanitaryEventType.CHECKUP, EVENT_DATE, null, SCHEDULED_ON);
+        var vaccination = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null, SCHEDULED_ON);
         persist(h);
 
         assertEquals(List.of(vaccination.getId()), candidateIdsAmong(treatment, checkup, vaccination));
@@ -103,9 +106,9 @@ class ReminderPersistenceTest {
     @Test
     void completedAndCancelledEventsAreNotCandidates() {
         var h = history();
-        var completed = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "aplicada");
-        var cancelled = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "cancelada");
-        var active = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "vigente");
+        var completed = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "aplicada", SCHEDULED_ON);
+        var cancelled = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "cancelada", SCHEDULED_ON);
+        var active = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, "vigente", SCHEDULED_ON);
         h.registerEvent(SanitaryEventType.VACCINATION, LocalDateTime.of(2020, 6, 1, 9, 0), "otro registro COMPLETED");
         persist(h);
         // No existen transiciones a COMPLETED/CANCELLED (fuera de alcance): se simulan directamente en la BD.
@@ -118,7 +121,7 @@ class ReminderPersistenceTest {
     @Test
     void eventWithAReminderForTheSameTimeIsNoLongerACandidate() {
         var h = history();
-        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null);
+        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null, SCHEDULED_ON);
         persist(h);
         reminders.createIfAbsent(Reminder.create(event, REMINDER_TIME));
 
@@ -128,7 +131,7 @@ class ReminderPersistenceTest {
     @Test
     void reminderForAnotherAnticipationDoesNotExcludeTheEvent() {
         var h = history();
-        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null);
+        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null, SCHEDULED_ON);
         persist(h);
         reminders.createIfAbsent(Reminder.create(event, REMINDER_TIME.plusDays(2)));
 
@@ -138,7 +141,7 @@ class ReminderPersistenceTest {
     @Test
     void createIfAbsentReturnsEmptyForTheSameEventAndScheduledFor() {
         var h = history();
-        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null);
+        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null, SCHEDULED_ON);
         persist(h);
 
         var first = reminders.createIfAbsent(Reminder.create(event, REMINDER_TIME));
@@ -154,7 +157,7 @@ class ReminderPersistenceTest {
     @Test
     void sameEventAcceptsRemindersForDifferentScheduledFor() {
         var h = history();
-        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null);
+        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null, SCHEDULED_ON);
         persist(h);
 
         assertTrue(reminders.createIfAbsent(Reminder.create(event, REMINDER_TIME)).isPresent());
@@ -167,7 +170,7 @@ class ReminderPersistenceTest {
     @Test
     void persistedReminderRoundTripsItsDeliveryState() {
         var h = history();
-        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null);
+        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null, SCHEDULED_ON);
         persist(h);
         var reminder = reminders.createIfAbsent(Reminder.create(event, REMINDER_TIME)).orElseThrow();
         var sentAt = Instant.parse("2042-06-07T13:00:00Z");
@@ -187,12 +190,12 @@ class ReminderPersistenceTest {
     @Test
     void retryableAreFailedRemindersOfScheduledEventsNotInThePast() {
         var h = history();
-        var upcoming = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(2), null);
-        var dueToday = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY, null);
-        var past = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.minusDays(1), null);
-        var completed = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(2), null);
-        var pending = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(2), null);
-        var sent = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(2), null);
+        var upcoming = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(2), null, SCHEDULED_ON);
+        var dueToday = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY, null, SCHEDULED_ON);
+        var past = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.minusDays(1), null, SCHEDULED_ON);
+        var completed = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(2), null, SCHEDULED_ON);
+        var pending = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(2), null, SCHEDULED_ON);
+        var sent = h.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(2), null, SCHEDULED_ON);
         persist(h);
         var failedUpcoming = failed(upcoming);
         var failedDueToday = failed(dueToday);
@@ -244,7 +247,7 @@ class ReminderPersistenceTest {
     @Test
     void secondReminderWithTheSameEventAndScheduledForViolatesTheUniqueConstraint() {
         var h = history();
-        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null);
+        var event = h.scheduleEvent(SanitaryEventType.VACCINATION, EVENT_DATE, null, SCHEDULED_ON);
         persist(h);
         reminders.save(Reminder.create(event, REMINDER_TIME));
 

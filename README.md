@@ -87,6 +87,16 @@ CREATE TABLE reminders (
 - `UNIQUE (sanitary_event_id, scheduled_for)` es la clave de idempotencia: el mismo recordatorio no se crea dos veces.
 - `attempts` y `sent_at` son atributos técnicos de entrega; los valores de `status` son una decisión de implementación.
 
+### Flujo de US-13 (recordatorio de vacunación)
+
+1. `POST /api/v1/animals/{animalId}/sanitary-events/scheduled` programa un evento (`SCHEDULED`) de cualquier tipo sanitario. La fecha no puede ser anterior a hoy (lo valida el REST y también el dominio, con el `Clock` de `gethics.sanitary.reminders.zone`).
+2. Cada día (`gethics.sanitary.reminders.cron`) el job envía un recordatorio por cada vacuna `SCHEDULED` cuya fecha es hoy + 3 días. Es idempotente: el mismo aviso no se envía dos veces.
+3. `POST /api/v1/animals/{animalId}/sanitary-events/{eventId}/complete` registra como aplicada **la misma** vacuna programada (`SCHEDULED` → `COMPLETED`): fija `occurredAt`, conserva `scheduledDate` y no crea otra fila. Desde ese momento el job no genera recordatorio ni reintenta uno `FAILED`. Un evento registrado aparte con el `POST` de US-11 **no** se vincula con el programado.
+
+No hay cambio de esquema: `status` ya admite `COMPLETED` y `occurred_at` ya es nullable.
+
+**Push real bloqueado externamente:** el envío lo hace `LoggingNotificationService`, que solo escribe en el log (simulado). Falta resolver animal → propietario (Livestock no existe), propietario → device token (IAM no lo modela) y un proveedor push (FCM u otro, con credenciales).
+
 ### Cambio de esquema: Analytics & Alerts (US-21)
 
 Se agregan las tablas `analytics`, `livestock_trends` y `alerts`. Con `ddl-auto: update` (`dev`) Hibernate las crea solo, incluidas las FK y la restricción única. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearlas manualmente antes de desplegar:

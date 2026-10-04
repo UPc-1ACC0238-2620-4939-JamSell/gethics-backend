@@ -14,8 +14,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ReminderTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2026, 10, 2);
+
     private final SanitaryEvent event = new ClinicalHistory(UUID.randomUUID())
-            .scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2026, 10, 5), null);
+            .scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2026, 10, 5), null, SCHEDULED_ON);
     private final LocalDateTime reminderTime = LocalDate.of(2026, 10, 2).atStartOfDay();
 
     @Test

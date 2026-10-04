@@ -16,13 +16,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SanitaryScheduleServiceTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2026, 1, 1);
+
     private static final LocalDate TODAY = LocalDate.of(2026, 10, 2);
 
     private final SanitaryScheduleService service = new SanitaryScheduleService();
     private final ClinicalHistory history = new ClinicalHistory(UUID.randomUUID());
 
     private SanitaryEvent scheduled(SanitaryEventType type, LocalDate date) {
-        return history.scheduleEvent(type, date, null);
+        return history.scheduleEvent(type, date, null, SCHEDULED_ON);
     }
 
     @Test

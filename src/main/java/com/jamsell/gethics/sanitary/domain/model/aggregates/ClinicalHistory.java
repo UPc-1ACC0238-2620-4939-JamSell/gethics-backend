@@ -1,5 +1,6 @@
 package com.jamsell.gethics.sanitary.domain.model.aggregates;
 
+import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
 import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
 import jakarta.persistence.*;
@@ -50,9 +51,19 @@ public class ClinicalHistory {
         return event;
     }
 
-    public SanitaryEvent scheduleEvent(SanitaryEventType type, LocalDate scheduledDate, String description) {
-        var event = SanitaryEvent.schedule(this, type, scheduledDate, description);
+    public SanitaryEvent scheduleEvent(SanitaryEventType type, LocalDate scheduledDate, String description, LocalDate today) {
+        var event = SanitaryEvent.schedule(this, type, scheduledDate, description, today);
         events.add(event);
+        updatedAt = Instant.now();
+        return event;
+    }
+
+    public SanitaryEvent completeScheduledEvent(UUID eventId, LocalDateTime occurredAt, String description, LocalDate today) {
+        var event = events.stream()
+                .filter(e -> e.getId() != null && e.getId().equals(eventId))
+                .findFirst()
+                .orElseThrow(SanitaryEventNotFoundException::new);
+        event.complete(occurredAt, description, today);
         updatedAt = Instant.now();
         return event;
     }

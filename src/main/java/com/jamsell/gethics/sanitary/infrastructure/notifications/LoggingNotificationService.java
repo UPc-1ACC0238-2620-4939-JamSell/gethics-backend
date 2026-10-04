@@ -6,9 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter TEMPORAL de {@link NotificationService}: solo escribe en el log. <b>NO representa un push real</b>: no hay
- * proveedor (FCM u otro), credenciales, device tokens ni forma de resolver el propietario del animal (IAM pendiente).
- * Un adapter real deberia reemplazarlo, resolviendo animal -> propietario -> device token.
+ * Adapter TEMPORAL de {@link NotificationService}: solo escribe en el log. <b>NO representa un push real</b>.
+ * Bloqueos externos: Livestock no existe (no se puede resolver animal -> propietario), IAM no modela device tokens y no
+ * hay proveedor push (FCM u otro) ni credenciales. Un adapter real deberia reemplazarlo, resolviendo
+ * animal -> propietario -> device token.
  */
 @Slf4j
 @Component

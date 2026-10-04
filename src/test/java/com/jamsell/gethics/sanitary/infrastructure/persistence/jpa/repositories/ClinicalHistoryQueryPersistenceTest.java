@@ -33,6 +33,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @Import({ClinicalHistoryQueryRepositoryImpl.class, ClinicalHistoryQueryServiceImpl.class, ClinicalHistoryRepositoryImpl.class})
 class ClinicalHistoryQueryPersistenceTest {
 
+    // Fecha en que se programaron los fixtures: el dominio no permite programar en una fecha ya vencida.
+    private static final LocalDate SCHEDULED_ON = LocalDate.of(2026, 1, 1);
+
     @Autowired
     ClinicalHistoryQueryRepository queryRepository;
     @Autowired
@@ -55,8 +58,8 @@ class ClinicalHistoryQueryPersistenceTest {
     void returnsEveryEventOfTheAnimalWhateverItsStatus() {
         var history = new ClinicalHistory(UUID.randomUUID());
         var completed = history.registerEvent(SanitaryEventType.VACCINATION, LocalDateTime.of(2025, 5, 1, 9, 0), "aplicada");
-        var scheduled = history.scheduleEvent(SanitaryEventType.CHECKUP, LocalDate.of(2042, 1, 10), "programado");
-        var cancelled = history.scheduleEvent(SanitaryEventType.TREATMENT, LocalDate.of(2042, 2, 10), "cancelado");
+        var scheduled = history.scheduleEvent(SanitaryEventType.CHECKUP, LocalDate.of(2042, 1, 10), "programado", SCHEDULED_ON);
+        var cancelled = history.scheduleEvent(SanitaryEventType.TREATMENT, LocalDate.of(2042, 2, 10), "cancelado", SCHEDULED_ON);
         persist(history);
         // No existe comportamiento de cancelacion (fuera de alcance): se simula directamente en la BD.
         em.createNativeQuery("update sanitary_events set status = 'CANCELLED' where id = :id")
@@ -75,7 +78,7 @@ class ClinicalHistoryQueryPersistenceTest {
         var cow = new ClinicalHistory(UUID.randomUUID());
         var bull = new ClinicalHistory(UUID.randomUUID());
         var cowEvent = cow.registerEvent(SanitaryEventType.VACCINATION, LocalDateTime.of(2025, 5, 1, 9, 0), "vaca");
-        var bullEvent = bull.scheduleEvent(SanitaryEventType.CHECKUP, LocalDate.of(2042, 1, 10), "toro");
+        var bullEvent = bull.scheduleEvent(SanitaryEventType.CHECKUP, LocalDate.of(2042, 1, 10), "toro", SCHEDULED_ON);
         persist(cow);
         persist(bull);
 
@@ -99,9 +102,9 @@ class ClinicalHistoryQueryPersistenceTest {
     @Test
     void serviceReturnsMixedEventsInAscendingChronologicalOrder() {
         var history = new ClinicalHistory(UUID.randomUUID());
-        var future = history.scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2042, 6, 1), "futuro");
+        var future = history.scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.of(2042, 6, 1), "futuro", SCHEDULED_ON);
         var recent = history.registerEvent(SanitaryEventType.TREATMENT, LocalDateTime.of(2026, 3, 1, 9, 0), "reciente");
-        var overdue = history.scheduleEvent(SanitaryEventType.CHECKUP, LocalDate.of(2026, 1, 15), "vencido");
+        var overdue = history.scheduleEvent(SanitaryEventType.CHECKUP, LocalDate.of(2026, 1, 15), "vencido", SCHEDULED_ON);
         var old = history.registerEvent(SanitaryEventType.DISEASE, LocalDateTime.of(2025, 1, 1, 9, 0), "antiguo");
         persist(history);
 
