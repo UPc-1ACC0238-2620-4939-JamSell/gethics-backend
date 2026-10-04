@@ -7,3 +7,4 @@ public record AssignClientResource(
         @NotNull(message = "Veterinarian id is required") UUID veterinarianId,
         @NotNull(message = "Client id is required") UUID clientId) {
 }
+

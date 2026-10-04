@@ -11,3 +11,4 @@ public record AssignmentResource(
         Instant assignedAt,
         VeterinaryAssignmentStatus status) {
 }
+
