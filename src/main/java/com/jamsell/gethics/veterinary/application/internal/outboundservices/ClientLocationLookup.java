@@ -7,3 +7,4 @@ public interface ClientLocationLookup {
 
     Optional<String> findLocationByClientId(UUID clientId);
 }
+

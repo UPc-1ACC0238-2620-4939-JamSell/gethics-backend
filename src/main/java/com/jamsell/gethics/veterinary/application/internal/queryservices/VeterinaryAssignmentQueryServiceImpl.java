@@ -36,3 +36,4 @@ public class VeterinaryAssignmentQueryServiceImpl implements VeterinaryAssignmen
                 .toList();
     }
 }
+
