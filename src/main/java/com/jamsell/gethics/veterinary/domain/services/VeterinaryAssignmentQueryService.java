@@ -8,3 +8,4 @@ public interface VeterinaryAssignmentQueryService {
 
     List<AssignedClient> handle(GetAssignedClientsQuery query);
 }
+

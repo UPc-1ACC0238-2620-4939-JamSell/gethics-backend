@@ -16,3 +16,4 @@ public interface VeterinaryAssignmentRepository extends JpaRepository<Veterinary
     boolean existsByVeterinarianIdAndClientIdAndStatus(UUID veterinarianId, UUID clientId,
                                                        VeterinaryAssignmentStatus status);
 }
+

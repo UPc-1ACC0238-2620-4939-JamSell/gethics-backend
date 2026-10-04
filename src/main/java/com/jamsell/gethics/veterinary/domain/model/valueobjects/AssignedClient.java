@@ -5,3 +5,4 @@ import java.util.UUID;
 
 public record AssignedClient(UUID assignmentId, UUID clientId, String location, Instant assignedAt) {
 }
+

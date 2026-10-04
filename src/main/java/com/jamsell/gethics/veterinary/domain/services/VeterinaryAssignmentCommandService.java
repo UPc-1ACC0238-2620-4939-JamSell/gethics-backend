@@ -7,3 +7,4 @@ public interface VeterinaryAssignmentCommandService {
 
     VeterinaryAssignment handle(AssignClientCommand command);
 }
+
