@@ -31,8 +31,6 @@ import static org.junit.jupiter.api.Assertions.*;
 @LivestockPersistenceTest
 class AnimalFarmPersistenceTest {
 
-    // El Clock lo aporta SanitaryReminderConfiguration, que los tests @DataJpaTest cargan al ser una @Configuration.
-
     @Autowired
     AnimalRepository animals;
     @Autowired

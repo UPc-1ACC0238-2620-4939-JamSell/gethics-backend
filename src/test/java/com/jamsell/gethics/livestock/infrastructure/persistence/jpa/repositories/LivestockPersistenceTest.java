@@ -21,6 +21,7 @@ import java.lang.annotation.Target;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({AnimalRepositoryImpl.class, AnimalQueryRepositoryImpl.class, FarmRepositoryImpl.class,
-        FarmQueryRepositoryImpl.class, AnimalFarmAssignmentRepositoryImpl.class, AnimalFarmCommandServiceImpl.class})
+        FarmQueryRepositoryImpl.class, AnimalFarmAssignmentRepositoryImpl.class, AnimalFarmCommandServiceImpl.class,
+        LivestockPersistenceTestConfig.class})
 @interface LivestockPersistenceTest {
 }
