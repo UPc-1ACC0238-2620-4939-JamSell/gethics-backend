@@ -5,7 +5,10 @@ import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalSex;
+import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalsQuery;
+import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalStatus;
 import com.jamsell.gethics.livestock.domain.services.AnimalCommandService;
+import com.jamsell.gethics.livestock.domain.services.AnimalQueryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -17,10 +20,12 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -36,6 +41,14 @@ class AnimalControllerTest {
 
     @MockitoBean
     AnimalCommandService commandService;
+
+    @MockitoBean
+    AnimalQueryService queryService;
+
+    private static Animal animal(String tag, String name, String breed) {
+        return Animal.register(new RegisterAnimalCommand(tag, name, breed, null, LocalDate.of(2024, 1, 1), null, null, null),
+                LocalDate.of(2026, 1, 1));
+    }
 
     private ResultActions postJson(String body) throws Exception {
         return mockMvc.perform(post(URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body));
@@ -102,5 +115,76 @@ class AnimalControllerTest {
         postJson(minimalBody("null"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Ya existe un animal con el arete A-1."));
+    }
+
+    // ---------------- US-06 ----------------
+
+    @Test
+    void listsAnimalsWithoutMessage() throws Exception {
+        when(queryService.handle(any(GetAnimalsQuery.class)))
+                .thenReturn(List.of(animal("MX-1", "Luna", "Holstein"), animal("MX-2", null, "Jersey")));
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.animals.length()").value(2))
+                .andExpect(jsonPath("$.animals[0].tag").value("MX-1"))
+                .andExpect(jsonPath("$.animals[0].name").value("Luna"))
+                .andExpect(jsonPath("$.animals[1].breed").value("Jersey"))
+                .andExpect(jsonPath("$.message").doesNotExist());
+    }
+
+    @Test
+    void withoutParametersSearchesActiveAnimalsOnly() throws Exception {
+        when(queryService.handle(any(GetAnimalsQuery.class))).thenReturn(List.of());
+
+        mockMvc.perform(get(URL)).andExpect(status().isOk());
+
+        verify(queryService).handle(new GetAnimalsQuery(null, AnimalStatus.ACTIVE));
+    }
+
+    @Test
+    void passesSearchAndStatusToTheQuery() throws Exception {
+        when(queryService.handle(any(GetAnimalsQuery.class))).thenReturn(List.of());
+
+        mockMvc.perform(get(URL).param("search", "  holstein ").param("status", "SOLD")).andExpect(status().isOk());
+
+        verify(queryService).handle(new GetAnimalsQuery("holstein", AnimalStatus.SOLD));
+    }
+
+    @Test
+    void searchWithoutMatchesReturnsSinResultados() throws Exception {
+        when(queryService.handle(any(GetAnimalsQuery.class))).thenReturn(List.of());
+
+        mockMvc.perform(get(URL).param("search", "zzz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.animals").isEmpty())
+                .andExpect(jsonPath("$.message").value("Sin resultados."));
+    }
+
+    @Test
+    void emptyInventoryReturnsNoAnimalsMessage() throws Exception {
+        when(queryService.handle(any(GetAnimalsQuery.class))).thenReturn(List.of());
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("No hay animales registrados."));
+    }
+
+    @Test
+    void unknownStatusReturns400() throws Exception {
+        mockMvc.perform(get(URL).param("status", "FLYING"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Parametro invalido: status"));
+
+        verifyNoInteractions(queryService);
+    }
+
+    @Test
+    void tooLongSearchReturns400() throws Exception {
+        mockMvc.perform(get(URL).param("search", "x".repeat(101)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("El criterio de busqueda no puede superar 100 caracteres."));
+
+        verifyNoInteractions(queryService);
     }
 }
