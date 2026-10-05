@@ -4,6 +4,9 @@ import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+import java.util.UUID;
+
 @Repository
 public class AnimalRepositoryImpl implements AnimalRepository {
 
@@ -21,5 +24,10 @@ public class AnimalRepositoryImpl implements AnimalRepository {
     @Override
     public Animal save(Animal animal) {
         return jpaRepository.saveAndFlush(animal);
+    }
+
+    @Override
+    public Optional<Animal> findById(UUID id) {
+        return jpaRepository.findById(id);
     }
 }

@@ -4,6 +4,7 @@ import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalDataException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalWeightException;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
+import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalSex;
 import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalStatus;
 import jakarta.persistence.*;
@@ -100,6 +101,32 @@ public class Animal {
         animal.status = AnimalStatus.ACTIVE;
         animal.createdAt = Instant.now();
         return animal;
+    }
+
+    /**
+     * US-07: actualiza los datos editables del animal (Escenario 1). El arete, el codigo QR, el estado y el id
+     * nunca cambian aqui: son identidad del registro, no datos editables desde este formulario (el arete/QR ademas
+     * son {@code updatable = false} en la columna). {@code today} lo aporta Application desde el Clock, igual que
+     * en {@link #register}.
+     */
+    public void updateDetails(UpdateAnimalCommand command, LocalDate today) {
+        var birthDate = Objects.requireNonNull(command.birthDate(), "birthDate");
+        if (birthDate.isAfter(Objects.requireNonNull(today, "today"))) {
+            throw new FutureBirthDateException();
+        }
+        var weight = command.initialWeightKg();
+        if (weight != null && weight.signum() <= 0) {
+            throw new InvalidAnimalWeightException();
+        }
+        this.name = optionalText(command.name(), NAME_MAX_LENGTH, "El nombre no puede superar 100 caracteres.");
+        this.breed = requireText(command.breed(), "La raza es obligatoria.", BREED_MAX_LENGTH,
+                "La raza no puede superar 60 caracteres.");
+        this.sex = command.sex();
+        this.birthDate = birthDate;
+        this.initialWeightKg = weight;
+        this.photoUrl = optionalText(command.photoUrl(), PHOTO_URL_MAX_LENGTH,
+                "La URL de la foto no puede superar 500 caracteres.");
+        this.farmId = command.farmId();
     }
 
     /** Forma canonica del arete (trim + mayusculas): con ella el servicio detecta duplicados antes de guardar. */

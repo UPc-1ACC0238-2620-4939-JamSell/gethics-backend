@@ -4,6 +4,7 @@ import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalDataException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalWeightException;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
+import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalSex;
 import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalStatus;
 import org.junit.jupiter.api.Test;
@@ -101,5 +102,76 @@ class AnimalTest {
         assertThrows(InvalidAnimalDataException.class, () -> register("A-1", "Jersey", TODAY, null, "x".repeat(501)));
         var longName = new RegisterAnimalCommand("A-1", "x".repeat(101), "Jersey", null, TODAY, null, null, null);
         assertThrows(InvalidAnimalDataException.class, () -> Animal.register(longName, TODAY));
+    }
+
+    // --- US-07: edicion de animal ---
+
+    @Test
+    void updateDetailsChangesMutableFieldsButKeepsIdentityUnchanged() {
+        var animal = register("mx-00123", "Holstein", TODAY.minusYears(1), new BigDecimal("300"), null);
+        var originalId = animal.getId();
+        var originalTag = animal.getTag();
+        var originalQrCode = animal.getQrCode();
+        var originalStatus = animal.getStatus();
+        var originalCreatedAt = animal.getCreatedAt();
+        var newFarmId = UUID.randomUUID();
+
+        animal.updateDetails(new UpdateAnimalCommand(animal.getId(), " Luna ", "Jersey", AnimalSex.FEMALE,
+                TODAY.minusYears(2), new BigDecimal("410.25"), "https://img/2.jpg", newFarmId), TODAY);
+
+        assertEquals("Luna", animal.getName());
+        assertEquals("Jersey", animal.getBreed());
+        assertEquals(AnimalSex.FEMALE, animal.getSex());
+        assertEquals(TODAY.minusYears(2), animal.getBirthDate());
+        assertEquals(new BigDecimal("410.25"), animal.getInitialWeightKg());
+        assertEquals("https://img/2.jpg", animal.getPhotoUrl());
+        assertEquals(newFarmId, animal.getFarmId());
+        assertEquals(originalId, animal.getId());
+        assertEquals(originalTag, animal.getTag());
+        assertEquals(originalQrCode, animal.getQrCode());
+        assertEquals(originalStatus, animal.getStatus());
+        assertEquals(originalCreatedAt, animal.getCreatedAt());
+    }
+
+    @Test
+    void updateDetailsClearsOptionalFieldsWhenBlank() {
+        var animal = register("A-1", "Jersey", TODAY, new BigDecimal("300"), "https://img/1.jpg");
+
+        animal.updateDetails(new UpdateAnimalCommand(animal.getId(), "  ", "Holstein", null, TODAY, null, "  ", null),
+                TODAY);
+
+        assertNull(animal.getName());
+        assertNull(animal.getSex());
+        assertNull(animal.getInitialWeightKg());
+        assertNull(animal.getPhotoUrl());
+        assertNull(animal.getFarmId());
+    }
+
+    @Test
+    void updateDetailsRejectsFutureBirthDate() {
+        var animal = register("A-1", "Jersey", TODAY, null, null);
+
+        assertThrows(FutureBirthDateException.class, () -> animal.updateDetails(
+                new UpdateAnimalCommand(animal.getId(), null, "Jersey", null, TODAY.plusDays(1), null, null, null),
+                TODAY));
+    }
+
+    @Test
+    void updateDetailsRejectsZeroOrNegativeWeight() {
+        var animal = register("A-1", "Jersey", TODAY, null, null);
+
+        assertThrows(InvalidAnimalWeightException.class, () -> animal.updateDetails(
+                new UpdateAnimalCommand(animal.getId(), null, "Jersey", null, TODAY, BigDecimal.ZERO, null, null),
+                TODAY));
+    }
+
+    @Test
+    void updateDetailsRejectsBlankOrTooLongBreed() {
+        var animal = register("A-1", "Jersey", TODAY, null, null);
+
+        assertThrows(InvalidAnimalDataException.class, () -> animal.updateDetails(
+                new UpdateAnimalCommand(animal.getId(), null, " ", null, TODAY, null, null, null), TODAY));
+        assertThrows(InvalidAnimalDataException.class, () -> animal.updateDetails(
+                new UpdateAnimalCommand(animal.getId(), null, "x".repeat(61), null, TODAY, null, null, null), TODAY));
     }
 }

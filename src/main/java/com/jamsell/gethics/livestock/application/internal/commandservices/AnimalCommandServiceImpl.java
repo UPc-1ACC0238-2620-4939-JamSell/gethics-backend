@@ -1,8 +1,10 @@
 package com.jamsell.gethics.livestock.application.internal.commandservices;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
+import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalRepository;
 import com.jamsell.gethics.livestock.domain.services.AnimalCommandService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -37,5 +39,15 @@ public class AnimalCommandServiceImpl implements AnimalCommandService {
             // Dos registros simultaneos con el mismo arete: gana la restriccion unica de la tabla.
             throw new DuplicateAnimalTagException(animal.getTag());
         }
+    }
+
+    /** US-07, Escenario 1: carga el animal, aplica los cambios y persiste. */
+    @Override
+    @Transactional
+    public Animal handle(UpdateAnimalCommand command) {
+        var animal = repository.findById(command.animalId())
+                .orElseThrow(() -> new AnimalNotFoundException(command.animalId()));
+        animal.updateDetails(command, LocalDate.now(clock));
+        return repository.save(animal);
     }
 }
