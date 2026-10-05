@@ -8,9 +8,6 @@ import com.jamsell.gethics.livestock.domain.repositories.AnimalRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -25,9 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * test hace rollback. Cada test usa un token aleatorio en arete, nombre y raza, asi sus resultados no dependen de
  * otros datos de la base.
  */
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({AnimalQueryRepositoryImpl.class, AnimalRepositoryImpl.class})
+@LivestockPersistenceTest
 class AnimalQueryPersistenceTest {
 
     private final String token = "zq" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);

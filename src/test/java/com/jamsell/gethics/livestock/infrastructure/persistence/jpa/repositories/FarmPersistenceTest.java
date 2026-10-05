@@ -7,9 +7,6 @@ import com.jamsell.gethics.livestock.domain.repositories.FarmRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
@@ -22,9 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Corre contra el PostgreSQL configurado en application-dev.yaml (en CI, el servicio postgres:16 del workflow). Cada
  * test hace rollback y usa duenos (ownerId) aleatorios, asi que sus resultados no dependen de otros datos de la base.
  */
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({FarmRepositoryImpl.class, FarmQueryRepositoryImpl.class})
+@LivestockPersistenceTest
 class FarmPersistenceTest {
 
     @Autowired

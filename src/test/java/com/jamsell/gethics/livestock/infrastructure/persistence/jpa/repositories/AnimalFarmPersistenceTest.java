@@ -15,16 +15,10 @@ import com.jamsell.gethics.livestock.domain.repositories.FarmRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,19 +28,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * Corre contra el PostgreSQL configurado en application-dev.yaml (en CI, el servicio postgres:16 del workflow). Cada
  * test hace rollback y usa ids y duenos aleatorios, asi que sus resultados no dependen de otros datos de la base.
  */
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({AnimalRepositoryImpl.class, AnimalQueryRepositoryImpl.class, FarmRepositoryImpl.class,
-        AnimalFarmAssignmentRepositoryImpl.class, AnimalFarmCommandServiceImpl.class,
-        AnimalFarmPersistenceTest.ClockConfig.class})
+@LivestockPersistenceTest
 class AnimalFarmPersistenceTest {
 
-    static class ClockConfig {
-        @Bean
-        Clock clock() {
-            return Clock.systemUTC();
-        }
-    }
+    // El Clock lo aporta SanitaryReminderConfiguration, que los tests @DataJpaTest cargan al ser una @Configuration.
 
     @Autowired
     AnimalRepository animals;
@@ -181,7 +166,7 @@ class AnimalFarmPersistenceTest {
     void theHistoryRecordsTheMomentOfTheChange() {
         var animal = saveAnimal("-1", AnimalStatus.ACTIVE);
         var farm = saveFarm("Fundo");
-        var before = Instant.now(Clock.system(ZoneOffset.UTC)).minusSeconds(5);
+        var before = Instant.now().minusSeconds(5);
 
         commandService.handle(new AssignAnimalToFarmCommand(animal.getId(), farm.getId()));
         em.clear();

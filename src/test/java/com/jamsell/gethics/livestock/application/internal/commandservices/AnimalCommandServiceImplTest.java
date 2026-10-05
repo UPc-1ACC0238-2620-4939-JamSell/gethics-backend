@@ -13,6 +13,7 @@ import com.jamsell.gethics.livestock.domain.repositories.FarmRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -57,7 +58,11 @@ class AnimalCommandServiceImplTest {
     void registeringInAnExistingFarmRecordsTheFirstAssignment() {
         var farmId = UUID.randomUUID();
         when(farms.existsById(farmId)).thenReturn(true);
-        when(repository.save(any(Animal.class))).thenAnswer(i -> i.getArgument(0));
+        when(repository.save(any(Animal.class))).thenAnswer(i -> {
+            Animal saved = i.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", UUID.randomUUID());
+            return saved;
+        });
 
         var animal = service.handle(commandWithFarm(farmId));
 
