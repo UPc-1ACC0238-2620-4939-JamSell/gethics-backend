@@ -11,6 +11,7 @@ import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.AssignFarmResource;
 import com.jamsell.gethics.livestock.interfaces.rest.transform.AnimalAssembler;
 import com.jamsell.gethics.livestock.interfaces.rest.transform.AnimalFarmAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +27,7 @@ import java.util.UUID;
  * Asociacion animal-granja (US-10). Limitacion: el animal no tiene dueno (IAM aun no esta integrado), asi que no se
  * valida que la granja sea del mismo ganadero que el animal.
  */
+@Tag(name = "Livestock")
 @RestController
 @RequestMapping("/api/v1")
 public class AnimalFarmController {

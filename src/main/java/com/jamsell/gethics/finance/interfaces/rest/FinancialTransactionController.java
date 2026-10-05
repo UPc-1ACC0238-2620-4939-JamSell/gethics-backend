@@ -9,6 +9,7 @@ import com.jamsell.gethics.finance.interfaces.rest.resources.RegisterTransaction
 import com.jamsell.gethics.finance.interfaces.rest.resources.TransactionResource;
 import com.jamsell.gethics.finance.interfaces.rest.transform.RegisterTransactionCommandFromResourceAssembler;
 import com.jamsell.gethics.finance.interfaces.rest.transform.TransactionResourceFromEntityAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Finance")
 @RestController
 @RequestMapping("/api/v1/finances")
 public class FinancialTransactionController {
