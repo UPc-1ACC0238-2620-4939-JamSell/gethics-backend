@@ -1,7 +1,6 @@
 package com.jamsell.gethics.finance.interfaces.rest;
 
-import com.jamsell.gethics.finance.domain.model.queries.GetBalanceByOwnerQuery;
-import com.jamsell.gethics.finance.domain.model.queries.GetTransactionsByOwnerQuery;
+import com.jamsell.gethics.finance.domain.model.queries.GetFinancialSummaryByOwnerQuery;
 import com.jamsell.gethics.finance.domain.services.FinancialManagementCommandService;
 import com.jamsell.gethics.finance.domain.services.FinancialManagementQueryService;
 import com.jamsell.gethics.finance.interfaces.rest.resources.FinancialSummaryResource;
@@ -10,8 +9,10 @@ import com.jamsell.gethics.finance.interfaces.rest.resources.TransactionResource
 import com.jamsell.gethics.finance.interfaces.rest.transform.RegisterTransactionCommandFromResourceAssembler;
 import com.jamsell.gethics.finance.interfaces.rest.transform.TransactionResourceFromEntityAssembler;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -25,6 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/finances")
 public class FinancialTransactionController {
+
+    private static final String NO_MOVEMENTS_MESSAGE = "No existen movimientos registrados para el periodo "
+            + "seleccionado.";
 
     private final FinancialManagementCommandService commandService;
     private final FinancialManagementQueryService queryService;
@@ -44,12 +48,23 @@ public class FinancialTransactionController {
     }
 
     @GetMapping
-    public ResponseEntity<FinancialSummaryResource> getSummary(@RequestParam UUID ownerId) {
-        var transactions = queryService.handle(new GetTransactionsByOwnerQuery(ownerId)).stream()
+    public ResponseEntity<FinancialSummaryResource> getSummary(
+            @RequestParam UUID ownerId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        if ((from == null) != (to == null)) {
+            throw new IllegalArgumentException("Both 'from' and 'to' must be provided to filter by period");
+        }
+
+        var summary = queryService.handle(new GetFinancialSummaryByOwnerQuery(ownerId, from, to));
+        var transactions = summary.transactions().stream()
                 .map(TransactionResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
-        var balance = queryService.handle(new GetBalanceByOwnerQuery(ownerId));
-        return ResponseEntity.ok(new FinancialSummaryResource(ownerId, balance, transactions));
+        var message = summary.hasMovements() ? null : NO_MOVEMENTS_MESSAGE;
+
+        return ResponseEntity.ok(new FinancialSummaryResource(
+                ownerId, summary.totalIncome(), summary.totalExpense(), summary.netBalance(), transactions,
+                message));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

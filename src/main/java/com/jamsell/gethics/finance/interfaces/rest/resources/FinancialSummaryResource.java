@@ -6,6 +6,9 @@ import java.util.UUID;
 
 public record FinancialSummaryResource(
         UUID ownerId,
+        BigDecimal totalIncome,
+        BigDecimal totalExpense,
         BigDecimal balance,
-        List<TransactionResource> transactions) {
+        List<TransactionResource> transactions,
+        String message) {
 }
