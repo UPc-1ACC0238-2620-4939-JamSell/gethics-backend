@@ -1,7 +1,9 @@
 package com.jamsell.gethics.livestock.interfaces.rest;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateFarmNameException;
+import com.jamsell.gethics.livestock.domain.exceptions.FarmNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalDataException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalWeightException;
@@ -33,6 +35,16 @@ public class LivestockExceptionHandler {
     @ExceptionHandler(DuplicateAnimalTagException.class)
     public ResponseEntity<ErrorResource> handleDuplicateTag(DuplicateAnimalTagException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResource(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AnimalNotFoundException.class)
+    public ResponseEntity<ErrorResource> handleAnimalNotFound(AnimalNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResource(ex.getMessage()));
+    }
+
+    @ExceptionHandler(FarmNotFoundException.class)
+    public ResponseEntity<ErrorResource> handleFarmNotFound(FarmNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResource(ex.getMessage()));
     }
 
     @ExceptionHandler(InvalidFarmDataException.class)

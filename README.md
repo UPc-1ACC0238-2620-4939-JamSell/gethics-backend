@@ -149,7 +149,28 @@ CREATE TABLE farms (
 - `size_hectares` es opcional y, si viene, mayor a 0. La historia pide "tamaño" sin unidad y el modelo del informe no lo incluye: se tomó hectáreas.
 - `status` nace `ACTIVE`; aún no hay forma de desactivar una granja.
 - `owner_id` referencia al usuario de IAM por id, sin FK física. **IAM aún no está integrado**, así que el dueño llega como `ownerId` en el `POST` y como parámetro obligatorio del `GET`, y no se valida que el usuario exista ni que sea quien llama. Cuando IAM esté disponible, el dueño saldrá del usuario autenticado y el parámetro se eliminará.
-- `animals.farm_id` sigue sin FK ni validación; asociar animales a una granja es US-10.
+- `animals.farm_id` no tiene FK física (mismo contexto, pero se valida en la aplicación); asociar animales a una granja es US-10.
+
+### Cambio de esquema: asociar animales a una granja (US-10)
+
+US-10 agrega la tabla `animal_farm_assignments` (historial de cambios de granja) y los endpoints `PUT /api/v1/animals/{animalId}/farm`, `GET /api/v1/animals/{animalId}/farm-history` y `GET /api/v1/farms/{farmId}/animals`. No cambia `animals` ni `farms`. Con `ddl-auto: update` (`dev`) Hibernate crea la tabla sola. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearla manualmente antes de desplegar:
+
+```sql
+CREATE TABLE animal_farm_assignments (
+    id            uuid PRIMARY KEY,
+    animal_id     uuid NOT NULL,
+    from_farm_id  uuid,
+    to_farm_id    uuid NOT NULL,
+    assigned_at   timestamp(6) with time zone NOT NULL
+);
+CREATE INDEX ix_animal_farm_assignments_animal ON animal_farm_assignments (animal_id);
+```
+
+- Cada asignación o cambio agrega **una fila** y nunca se modifica ni se borra (escenario 2 de la historia: se conserva el historial). `from_farm_id` es `NULL` en la primera asignación. Repetir la misma granja no agrega fila (`PUT` idempotente).
+- Según el informe cada animal pertenece a una finca: se puede **asignar y cambiar** de granja, pero no dejar al animal sin ella (`farmId` nulo → `400`).
+- `PUT` valida que existan el animal y la granja (`404` en otro caso). `POST /api/v1/animals` con `farmId` ahora también valida la granja (`404`) y registra la primera asignación en el historial.
+- `GET /farms/{farmId}/animals` lista por arete y, como el inventario, solo los `ACTIVE` salvo que se pida `?status=`. `404` si la granja no existe.
+- Limitación: el animal no tiene dueño (IAM aún no está integrado), así que no se valida que la granja sea del mismo ganadero que el animal.
 
 ### Cambio de esquema: Analytics & Alerts (US-21)
 

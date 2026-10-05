@@ -102,6 +102,19 @@ public class Animal {
         return animal;
     }
 
+    /**
+     * Asigna el animal a una granja o lo mueve a otra (US-10). Devuelve false, sin cambiar nada, si ya esta en ella.
+     * Un animal puede cambiar de granja pero no quedarse sin una: no hay forma de desasociarlo.
+     */
+    public boolean assignToFarm(UUID newFarmId) {
+        Objects.requireNonNull(newFarmId, "farmId");
+        if (newFarmId.equals(this.farmId)) {
+            return false;
+        }
+        this.farmId = newFarmId;
+        return true;
+    }
+
     /** Forma canonica del arete (trim + mayusculas): con ella el servicio detecta duplicados antes de guardar. */
     public static String normalizeTag(String tag) {
         return requireText(tag, "El arete es obligatorio.", TAG_MAX_LENGTH, "El arete no puede superar 50 caracteres.")
