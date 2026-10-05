@@ -97,6 +97,36 @@ No hay cambio de esquema: `status` ya admite `COMPLETED` y `occurred_at` ya es n
 
 **Push real bloqueado externamente:** el envío lo hace `LoggingNotificationService`, que solo escribe en el log (simulado). Falta resolver animal → propietario (Livestock no existe), propietario → device token (IAM no lo modela) y un proveedor push (FCM u otro, con credenciales).
 
+### Cambio de esquema: registro de animales (US-05)
+
+US-05 agrega la tabla `animals` (`POST /api/v1/animals`). Con `ddl-auto: update` (`dev`) Hibernate la crea sola. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearla manualmente antes de desplegar:
+
+```sql
+CREATE TABLE animals (
+    id                 uuid PRIMARY KEY,
+    farm_id            uuid,
+    tag                varchar(50) NOT NULL,
+    qr_code            varchar(20) NOT NULL,
+    name               varchar(100),
+    breed              varchar(60) NOT NULL,
+    sex                varchar(255) CHECK (sex IN ('MALE', 'FEMALE')),
+    birth_date         date NOT NULL,
+    initial_weight_kg  numeric(7, 2),
+    photo_url          varchar(500),
+    status             varchar(255) NOT NULL CHECK (status IN ('ACTIVE', 'SOLD', 'DECEASED', 'INACTIVE')),
+    created_at         timestamp(6) with time zone NOT NULL,
+    CONSTRAINT uk_animals_tag UNIQUE (tag),
+    CONSTRAINT uk_animals_qr_code UNIQUE (qr_code)
+);
+```
+
+- `qr_code` lo genera el sistema al registrar el animal (`GTH-` + 12 caracteres hexadecimales) y no se envía en el `POST`. Es la identificación única del animal para el escaneo QR del informe; el contenido del QR es un identificador, no hay imagen.
+- `status` nace siempre `ACTIVE` (las bajas lógicas de US-08 cambiarán este valor). `sex`, `name` y `farm_id` son opcionales por ahora: el formulario móvil no los pide y las fincas (US-09/10) aún no existen; `farm_id` se guarda sin FK ni validación.
+- `tag` (arete) se guarda sin espacios y en mayúsculas, por lo que `mx-1` y `MX-1` son el mismo arete. Es único en todo el hato (el informe lo plantea por finca; se ajustará cuando exista Farm). Duplicado → `409`.
+- `birth_date` no puede ser posterior a hoy (mismo `Clock` que sanitary) → `400`. `initial_weight_kg` es opcional y, si viene, mayor a 0.
+- `breed` es texto libre (≤ 60): el negocio aún no define un catálogo de razas. `photo_url` es solo una URL; no hay subida de archivos.
+- `sanitary_events` / `clinical_histories` siguen referenciando al animal por `animalId` sin FK física entre bounded contexts.
+
 ### Cambio de esquema: Analytics & Alerts (US-21)
 
 Se agregan las tablas `analytics`, `livestock_trends` y `alerts`. Con `ddl-auto: update` (`dev`) Hibernate las crea solo, incluidas las FK y la restricción única. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearlas manualmente antes de desplegar:
