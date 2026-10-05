@@ -13,6 +13,8 @@ interface AnimalJpaRepository extends JpaRepository<Animal, UUID> {
 
     boolean existsByTag(String tag);
 
+    List<Animal> findByFarmIdAndStatusOrderByTagAsc(UUID farmId, AnimalStatus status);
+
     // pattern llega siempre (con "%" si no hay busqueda) y ya viene en minusculas y con "!" como escape: asi no se
     // enlazan parametros null, que PostgreSQL no puede tipar.
     @Query("""

@@ -21,6 +21,11 @@ public class FarmRepositoryImpl implements FarmRepository {
     }
 
     @Override
+    public boolean existsById(UUID id) {
+        return jpaRepository.existsById(id);
+    }
+
+    @Override
     public Farm save(Farm farm) {
         return jpaRepository.saveAndFlush(farm);
     }

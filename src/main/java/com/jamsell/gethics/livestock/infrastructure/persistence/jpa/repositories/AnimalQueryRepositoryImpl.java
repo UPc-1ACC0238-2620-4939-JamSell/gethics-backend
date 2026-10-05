@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 @Repository
 public class AnimalQueryRepositoryImpl implements AnimalQueryRepository {
@@ -22,6 +23,11 @@ public class AnimalQueryRepositoryImpl implements AnimalQueryRepository {
     @Override
     public List<Animal> search(String search, AnimalStatus status) {
         return jpaRepository.search(toPattern(search), status);
+    }
+
+    @Override
+    public List<Animal> findByFarmId(UUID farmId, AnimalStatus status) {
+        return jpaRepository.findByFarmIdAndStatusOrderByTagAsc(farmId, status);
     }
 
     /** "contiene", en minusculas y con los comodines LIKE del usuario (%, _) y el propio escape tomados literalmente. */
