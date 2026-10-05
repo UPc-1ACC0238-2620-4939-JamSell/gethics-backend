@@ -7,6 +7,7 @@ import com.jamsell.gethics.livestock.interfaces.rest.resources.FarmListResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.FarmResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.RegisterFarmResource;
 import com.jamsell.gethics.livestock.interfaces.rest.transform.FarmAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ import java.util.UUID;
  * valida que corresponda a quien la envia ni que el usuario exista. Cuando IAM este disponible, el dueno saldra del
  * usuario autenticado y este parametro desaparecera.
  */
+@Tag(name = "Livestock")
 @RestController
 @RequestMapping("/api/v1/farms")
 public class FarmController {

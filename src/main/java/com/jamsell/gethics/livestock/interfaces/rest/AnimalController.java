@@ -8,6 +8,7 @@ import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalListResourc
 import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.RegisterAnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.transform.AnimalAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Limitaciones: no hay IAM ni Farm, asi que el inventario es unico para todos los usuarios (no se filtra por dueno
  * ni por finca) y no hay paginacion (no la exige US-06).
  */
+@Tag(name = "Livestock")
 @RestController
 @RequestMapping("/api/v1/animals")
 public class AnimalController {
