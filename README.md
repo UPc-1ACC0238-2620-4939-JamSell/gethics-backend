@@ -229,6 +229,33 @@ TrendAnalysisJob (cron gethics.analytics.analysis.cron; deshabilitado por defect
 - **Bloqueos:** definición del detector y del umbral (negocio); el push es simulado (`LoggingPushNotificationAdapter`) porque faltan Livestock (animal → propietario), device tokens en IAM y un proveedor push (FCM u otro).
 - No hay cambio de esquema.
 
+### Consulta de alertas por tendencia (US-21)
+
+`GET /api/v1/alerts?ownerId={uuid}` expone las `Alert` ya persistidas por el flujo anterior, de la más reciente a la más antigua (`createdAt` DESC). No detecta ni clasifica tendencias: solo lee lo que ya existe.
+
+```json
+{
+  "alerts": [
+    {
+      "id": "…",
+      "trendId": "…",
+      "trendType": "SANITARY",
+      "riskLevel": "HIGH",
+      "message": "…",
+      "status": "PENDING",
+      "createdAt": "2026-10-02T10:00:00Z"
+    }
+  ],
+  "message": null
+}
+```
+
+- `trendType` y `riskLevel` son los de la tendencia que originó la alerta.
+- Sin alertas: `200` con `{"alerts": [], "message": "No hay alertas registradas."}`.
+- `ownerId` ausente o que no es un UUID: `400` (manejo global de `RestExceptionHandler`). No se usa `404`.
+- **Limitación:** IAM aún no está integrado; el dueño llega como `ownerId` y no se valida contra el usuario autenticado. Un `ownerId` desconocido devuelve la lista vacía.
+- Mientras no exista ningún `TrendDetector` (y `alert-risk-levels` siga vacío) no se generan alertas, así que en un entorno real el endpoint devuelve el estado vacío.
+
 ## Variables de entorno
 
 Copia `.env.example` como `.env` y ajusta los valores si usas otra base de datos (por ejemplo Neon o Supabase). **Nunca subas el archivo `.env` al repositorio.**

@@ -20,6 +20,7 @@ import com.jamsell.gethics.analytics.domain.services.AlertRiskPolicy;
 import com.jamsell.gethics.analytics.domain.services.TrendAnalysisService;
 import com.jamsell.gethics.analytics.domain.services.TrendDetector;
 import jakarta.persistence.EntityManager;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -120,6 +122,8 @@ class AlertFlowTest {
     RecordingPush push;
     @Autowired
     EntityManager em;
+    @Autowired
+    AlertRepositoryImpl alertRepository;
 
     private final UUID ownerId = UUID.randomUUID();
 
@@ -307,5 +311,35 @@ class AlertFlowTest {
         assertEquals(1, push.sentTo(ownerId));
         assertEquals(1, alertsOfOwner().size());
         assertEquals(AlertStatus.SENT, alertsOfOwner().getFirst().getStatus());
+    }
+
+    // ---- Consulta de US-21 (GET /api/v1/alerts) ----
+
+    /** Alerta de la tendencia, con un createdAt fijo para que el orden no dependa de la resolucion del reloj. */
+    private UUID alertOf(LivestockTrend trend, String createdAt) {
+        var alertId = em.createQuery("select a.id from Alert a where a.trend.id = :trend", UUID.class)
+                .setParameter("trend", trend.getId()).getSingleResult();
+        em.createNativeQuery("update alerts set created_at = ?1 where id = ?2")
+                .setParameter(1, Timestamp.from(Instant.parse(createdAt)))
+                .setParameter(2, alertId)
+                .executeUpdate();
+        return alertId;
+    }
+
+    @Test
+    void findByOwnerIdReturnsOnlyThatOwnersAlertsNewestFirstWithTheTrendLoaded() {
+        var older = alertOf(trendService.handle(classified(RiskLevel.LOW, RiskLevel.HIGH)), "2026-10-01T10:00:00Z");
+        var newer = alertOf(trendService.handle(classified(RiskLevel.LOW, RiskLevel.HIGH)), "2026-10-02T10:00:00Z");
+        var otherOwner = UUID.randomUUID();
+        alertOf(trendService.handle(new RegisterClassifiedTrendCommand(otherOwner, RiskLevel.LOW, TrendType.SANITARY,
+                RiskLevel.HIGH, "descripcion", Instant.parse("2026-10-01T10:00:00Z"), "otro owner")),
+                "2026-10-03T10:00:00Z");
+        em.clear();
+
+        var alerts = alertRepository.findByOwnerId(ownerId);
+
+        assertEquals(List.of(newer, older), alerts.stream().map(Alert::getId).toList());
+        assertTrue(alerts.stream().allMatch(a -> a.getOwnerId().equals(ownerId)));
+        assertTrue(alerts.stream().allMatch(a -> Hibernate.isInitialized(a.getTrend())));
     }
 }
