@@ -9,8 +9,10 @@ public interface AnimalRepository {
     /** {@code tag} ya normalizado con {@link Animal#normalizeTag}. */
     boolean existsByTag(String tag);
 
-    /** Persiste el animal y devuelve la instancia persistida (con id asignado). */
-    Animal save(Animal animal);
+    boolean existsById(UUID id);
 
     Optional<Animal> findById(UUID id);
+
+    /** Persiste el animal y devuelve la instancia persistida (con id asignado). */
+    Animal save(Animal animal);
 }

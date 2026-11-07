@@ -22,12 +22,18 @@ public class AnimalRepositoryImpl implements AnimalRepository {
     }
 
     @Override
-    public Animal save(Animal animal) {
-        return jpaRepository.saveAndFlush(animal);
+    public boolean existsById(UUID id) {
+        return jpaRepository.existsById(id);
     }
 
     @Override
     public Optional<Animal> findById(UUID id) {
         return jpaRepository.findById(id);
     }
+
+    @Override
+    public Animal save(Animal animal) {
+        return jpaRepository.saveAndFlush(animal);
+    }
+
 }

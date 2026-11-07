@@ -125,7 +125,8 @@ class AnimalTest {
         assertEquals(TODAY.minusYears(2), animal.getBirthDate());
         assertEquals(new BigDecimal("410.25"), animal.getInitialWeightKg());
         assertEquals("https://img/2.jpg", animal.getPhotoUrl());
-        assertEquals(newFarmId, animal.getFarmId());
+        // La granja no cambia aqui: el servicio la mueve con assignToFarm para dejar historial (US-10).
+        assertNull(animal.getFarmId());
         assertEquals(originalId, animal.getId());
         assertEquals(originalTag, animal.getTag());
         assertEquals(originalQrCode, animal.getQrCode());

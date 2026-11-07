@@ -6,6 +6,7 @@ import com.jamsell.gethics.sanitary.interfaces.rest.resources.RegisterSanitaryEv
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.SanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.ScheduleSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.transform.SanitaryEventAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Sanitary")
 @RestController
 @RequestMapping("/api/v1/animals/{animalId}/sanitary-events")
 public class SanitaryEventController {

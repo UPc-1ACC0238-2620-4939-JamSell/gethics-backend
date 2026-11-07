@@ -104,10 +104,24 @@ public class Animal {
     }
 
     /**
+     * Asigna el animal a una granja o lo mueve a otra (US-10). Devuelve false, sin cambiar nada, si ya esta en ella.
+     * Un animal puede cambiar de granja pero no quedarse sin una: no hay forma de desasociarlo.
+     */
+    public boolean assignToFarm(UUID newFarmId) {
+        Objects.requireNonNull(newFarmId, "farmId");
+        if (newFarmId.equals(this.farmId)) {
+            return false;
+        }
+        this.farmId = newFarmId;
+        return true;
+    }
+
+    /**
      * US-07: actualiza los datos editables del animal (Escenario 1). El arete, el codigo QR, el estado y el id
      * nunca cambian aqui: son identidad del registro, no datos editables desde este formulario (el arete/QR ademas
-     * son {@code updatable = false} en la columna). {@code today} lo aporta Application desde el Clock, igual que
-     * en {@link #register}.
+     * son {@code updatable = false} en la columna). La granja tampoco: un cambio de granja pasa por
+     * {@link #assignToFarm} para dejar historial (US-10). {@code today} lo aporta Application desde el Clock, igual
+     * que en {@link #register}.
      */
     public void updateDetails(UpdateAnimalCommand command, LocalDate today) {
         var birthDate = Objects.requireNonNull(command.birthDate(), "birthDate");
@@ -126,7 +140,6 @@ public class Animal {
         this.initialWeightKg = weight;
         this.photoUrl = optionalText(command.photoUrl(), PHOTO_URL_MAX_LENGTH,
                 "La URL de la foto no puede superar 500 caracteres.");
-        this.farmId = command.farmId();
     }
 
     /** Forma canonica del arete (trim + mayusculas): con ella el servicio detecta duplicados antes de guardar. */
