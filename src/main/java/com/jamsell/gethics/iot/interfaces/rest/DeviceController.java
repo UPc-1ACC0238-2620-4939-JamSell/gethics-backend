@@ -8,6 +8,7 @@ import com.jamsell.gethics.iot.interfaces.rest.resources.LinkDeviceResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.RegisterSensorReadingResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingResource;
 import com.jamsell.gethics.iot.interfaces.rest.transform.DeviceAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * US-23: vinculacion de dispositivos IoT (Escenario 1), ingesta de lecturas, y consulta de estado
  * conectado/desconectado (Escenario 2; la transicion a DISCONNECTED la aplica {@code DeviceSyncJob}).
  */
+@Tag(name = "IoT")
 @RestController
 @RequestMapping("/api/v1/devices")
 public class DeviceController {
