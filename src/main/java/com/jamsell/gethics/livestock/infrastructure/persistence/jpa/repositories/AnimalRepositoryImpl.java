@@ -35,4 +35,5 @@ public class AnimalRepositoryImpl implements AnimalRepository {
     public Animal save(Animal animal) {
         return jpaRepository.saveAndFlush(animal);
     }
+
 }
