@@ -1,10 +1,12 @@
 package com.jamsell.gethics.livestock.application.internal.commandservices;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.exceptions.FarmNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
+import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.entities.AnimalFarmAssignment;
 import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalStatus;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalFarmAssignmentRepository;
@@ -20,6 +22,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -120,5 +123,93 @@ class AnimalCommandServiceImplTest {
         assertThrows(FutureBirthDateException.class, () -> service.handle(command("MX-00123", TODAY.plusDays(1))));
 
         verifyNoInteractions(repository);
+    }
+
+    // --- US-07: edicion de animal ---
+
+    @Test
+    void updateHandlerLoadsAppliesChangesAndSaves() {
+        var existing = Animal.register(command("A-1", TODAY.minusYears(1)), TODAY);
+        when(repository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(repository.save(existing)).thenReturn(existing);
+
+        var updateCommand = new UpdateAnimalCommand(existing.getId(), "Luna", "Jersey", null, TODAY,
+                new BigDecimal("410"), null, null);
+        var updated = service.handle(updateCommand);
+
+        assertEquals("Luna", updated.getName());
+        assertEquals("Jersey", updated.getBreed());
+        verify(repository).save(existing);
+    }
+
+    @Test
+    void updateHandlerThrowsNotFoundWhenAnimalIsMissing() {
+        var animalId = UUID.randomUUID();
+        when(repository.findById(animalId)).thenReturn(Optional.empty());
+
+        var updateCommand = new UpdateAnimalCommand(animalId, null, "Jersey", null, TODAY, null, null, null);
+
+        assertThrows(AnimalNotFoundException.class, () -> service.handle(updateCommand));
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void updateHandlerUsesClockTodayToRejectFutureBirthDateWithoutSaving() {
+        var existing = Animal.register(command("A-1", TODAY.minusYears(1)), TODAY);
+        when(repository.findById(existing.getId())).thenReturn(Optional.of(existing));
+
+        var updateCommand = new UpdateAnimalCommand(existing.getId(), null, "Jersey", null, TODAY.plusDays(1), null,
+                null, null);
+
+        assertThrows(FutureBirthDateException.class, () -> service.handle(updateCommand));
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void updateWithAnotherExistingFarmMovesTheAnimalAndRecordsTheHistory() {
+        var farmA = UUID.randomUUID();
+        var farmB = UUID.randomUUID();
+        var existing = Animal.register(commandWithFarm(farmA), TODAY);
+        ReflectionTestUtils.setField(existing, "id", UUID.randomUUID());
+        when(repository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(farms.existsById(farmB)).thenReturn(true);
+        when(repository.save(existing)).thenReturn(existing);
+
+        var updated = service.handle(new UpdateAnimalCommand(existing.getId(), null, "Jersey", null, TODAY, null, null, farmB));
+
+        assertEquals(farmB, updated.getFarmId());
+        var captor = ArgumentCaptor.forClass(AnimalFarmAssignment.class);
+        verify(assignments).save(captor.capture());
+        assertEquals(farmA, captor.getValue().getFromFarmId());
+        assertEquals(farmB, captor.getValue().getToFarmId());
+    }
+
+    @Test
+    void updateWithAnUnknownFarmIsRejectedWithoutSaving() {
+        var existing = Animal.register(command("A-1", TODAY.minusYears(1)), TODAY);
+        when(repository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        var unknownFarm = UUID.randomUUID();
+        when(farms.existsById(unknownFarm)).thenReturn(false);
+
+        assertThrows(FarmNotFoundException.class, () -> service.handle(
+                new UpdateAnimalCommand(existing.getId(), null, "Jersey", null, TODAY, null, null, unknownFarm)));
+
+        verify(repository, never()).save(any());
+        verifyNoInteractions(assignments);
+    }
+
+    @Test
+    void updateWithoutFarmKeepsTheCurrentFarmAndRecordsNoHistory() {
+        var farmA = UUID.randomUUID();
+        var existing = Animal.register(commandWithFarm(farmA), TODAY);
+        when(repository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(repository.save(existing)).thenReturn(existing);
+
+        var updated = service.handle(new UpdateAnimalCommand(existing.getId(), null, "Jersey", null, TODAY, null, null, null));
+
+        assertEquals(farmA, updated.getFarmId());
+        verifyNoInteractions(assignments);
     }
 }
