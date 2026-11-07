@@ -4,6 +4,7 @@ import com.jamsell.gethics.sanitary.domain.model.queries.GetClinicalHistoryQuery
 import com.jamsell.gethics.sanitary.domain.services.ClinicalHistoryQueryService;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.ClinicalHistoryResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.transform.ClinicalHistoryAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +17,7 @@ import java.util.UUID;
  * veterinario asignado del animal. Tampoco se valida que el animal exista (livestock aun no lo permite): un UUID valido
  * pero inexistente responde 200 con "Sin registros.", igual que un animal sin eventos.
  */
+@Tag(name = "Sanitary")
 @RestController
 @RequestMapping("/api/v1/animals/{animalId}/clinical-history")
 public class ClinicalHistoryController {
