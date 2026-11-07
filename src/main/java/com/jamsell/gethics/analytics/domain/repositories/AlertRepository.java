@@ -12,4 +12,7 @@ public interface AlertRepository {
 
     /** Alertas PENDING (aun no enviadas), de la mas antigua a la mas reciente. */
     List<Alert> findPending();
+
+    /** Alertas del propietario, de la mas reciente a la mas antigua, con su tendencia ya cargada. */
+    List<Alert> findByOwnerId(UUID ownerId);
 }

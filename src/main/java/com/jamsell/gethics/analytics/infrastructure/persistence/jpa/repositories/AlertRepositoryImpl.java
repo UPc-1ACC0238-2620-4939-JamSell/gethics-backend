@@ -31,4 +31,9 @@ public class AlertRepositoryImpl implements AlertRepository {
     public List<Alert> findPending() {
         return jpaRepository.findByStatusOrderByCreatedAtAsc(AlertStatus.PENDING);
     }
+
+    @Override
+    public List<Alert> findByOwnerId(UUID ownerId) {
+        return jpaRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId);
+    }
 }
