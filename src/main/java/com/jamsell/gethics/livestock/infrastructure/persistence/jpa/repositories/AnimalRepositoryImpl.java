@@ -1,0 +1,38 @@
+package com.jamsell.gethics.livestock.infrastructure.persistence.jpa.repositories;
+
+import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
+import com.jamsell.gethics.livestock.domain.repositories.AnimalRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public class AnimalRepositoryImpl implements AnimalRepository {
+
+    private final AnimalJpaRepository jpaRepository;
+
+    public AnimalRepositoryImpl(AnimalJpaRepository jpaRepository) {
+        this.jpaRepository = jpaRepository;
+    }
+
+    @Override
+    public boolean existsByTag(String tag) {
+        return jpaRepository.existsByTag(tag);
+    }
+
+    @Override
+    public boolean existsById(UUID id) {
+        return jpaRepository.existsById(id);
+    }
+
+    @Override
+    public Optional<Animal> findById(UUID id) {
+        return jpaRepository.findById(id);
+    }
+
+    @Override
+    public Animal save(Animal animal) {
+        return jpaRepository.saveAndFlush(animal);
+    }
+}
