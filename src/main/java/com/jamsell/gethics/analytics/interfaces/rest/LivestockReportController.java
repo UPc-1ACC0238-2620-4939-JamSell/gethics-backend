@@ -4,6 +4,7 @@ import com.jamsell.gethics.analytics.domain.model.queries.GetLivestockReportQuer
 import com.jamsell.gethics.analytics.domain.services.LivestockReportQueryService;
 import com.jamsell.gethics.analytics.interfaces.rest.resources.LivestockReportResource;
 import com.jamsell.gethics.analytics.interfaces.rest.transform.LivestockReportResourceAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * US-20: reportes y estadisticas del ganado por rango de fechas.
  */
+@Tag(name = "Analytics")
 @RestController
 @RequestMapping("/api/v1/reports")
 public class LivestockReportController {
