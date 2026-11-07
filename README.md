@@ -97,6 +97,81 @@ No hay cambio de esquema: `status` ya admite `COMPLETED` y `occurred_at` ya es n
 
 **Push real bloqueado externamente:** el envío lo hace `LoggingNotificationService`, que solo escribe en el log (simulado). Falta resolver animal → propietario (Livestock no existe), propietario → device token (IAM no lo modela) y un proveedor push (FCM u otro, con credenciales).
 
+### Cambio de esquema: registro de animales (US-05)
+
+US-05 agrega la tabla `animals` (`POST /api/v1/animals`). Con `ddl-auto: update` (`dev`) Hibernate la crea sola. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearla manualmente antes de desplegar:
+
+```sql
+CREATE TABLE animals (
+    id                 uuid PRIMARY KEY,
+    farm_id            uuid,
+    tag                varchar(50) NOT NULL,
+    qr_code            varchar(20) NOT NULL,
+    name               varchar(100),
+    breed              varchar(60) NOT NULL,
+    sex                varchar(255) CHECK (sex IN ('MALE', 'FEMALE')),
+    birth_date         date NOT NULL,
+    initial_weight_kg  numeric(7, 2),
+    photo_url          varchar(500),
+    status             varchar(255) NOT NULL CHECK (status IN ('ACTIVE', 'SOLD', 'DECEASED', 'INACTIVE')),
+    created_at         timestamp(6) with time zone NOT NULL,
+    CONSTRAINT uk_animals_tag UNIQUE (tag),
+    CONSTRAINT uk_animals_qr_code UNIQUE (qr_code)
+);
+```
+
+- `qr_code` lo genera el sistema al registrar el animal (`GTH-` + 12 caracteres hexadecimales) y no se envía en el `POST`. Es la identificación única del animal para el escaneo QR del informe; el contenido del QR es un identificador, no hay imagen.
+- `status` nace siempre `ACTIVE` (las bajas lógicas de US-08 cambiarán este valor). `sex`, `name` y `farm_id` son opcionales por ahora: el formulario móvil no los pide y las fincas (US-09/10) aún no existen; `farm_id` se guarda sin FK ni validación.
+- `tag` (arete) se guarda sin espacios y en mayúsculas, por lo que `mx-1` y `MX-1` son el mismo arete. Es único en todo el hato (el informe lo plantea por finca; se ajustará cuando exista Farm). Duplicado → `409`.
+- `birth_date` no puede ser posterior a hoy (mismo `Clock` que sanitary) → `400`. `initial_weight_kg` es opcional y, si viene, mayor a 0.
+- `breed` es texto libre (≤ 60): el negocio aún no define un catálogo de razas. `photo_url` es solo una URL; no hay subida de archivos.
+- `sanitary_events` / `clinical_histories` siguen referenciando al animal por `animalId` sin FK física entre bounded contexts.
+
+### Cambio de esquema: registro de granjas (US-09)
+
+US-09 agrega la tabla `farms` (`POST /api/v1/farms` y `GET /api/v1/farms?ownerId=`). Con `ddl-auto: update` (`dev`) Hibernate la crea sola. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearla manualmente antes de desplegar:
+
+```sql
+CREATE TABLE farms (
+    id               uuid PRIMARY KEY,
+    owner_id         uuid NOT NULL,
+    name             varchar(100) NOT NULL,
+    normalized_name  varchar(100) NOT NULL,
+    location         varchar(200) NOT NULL,
+    size_hectares    numeric(9, 2),
+    status           varchar(255) NOT NULL CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    created_at       timestamp(6) with time zone NOT NULL,
+    CONSTRAINT uk_farms_owner_name UNIQUE (owner_id, normalized_name)
+);
+```
+
+- El nombre es único **por dueño** sin distinguir mayúsculas ni espacios sobrantes (`Fundo Sur` y ` fundo sur` chocan; dos dueños distintos pueden usar el mismo nombre). Cada granja conserva el nombre como se escribió; `normalized_name` solo sirve para la restricción. Duplicado → `409`.
+- `size_hectares` es opcional y, si viene, mayor a 0. La historia pide "tamaño" sin unidad y el modelo del informe no lo incluye: se tomó hectáreas.
+- `status` nace `ACTIVE`; aún no hay forma de desactivar una granja.
+- `owner_id` referencia al usuario de IAM por id, sin FK física. **IAM aún no está integrado**, así que el dueño llega como `ownerId` en el `POST` y como parámetro obligatorio del `GET`, y no se valida que el usuario exista ni que sea quien llama. Cuando IAM esté disponible, el dueño saldrá del usuario autenticado y el parámetro se eliminará.
+- `animals.farm_id` no tiene FK física (mismo contexto, pero se valida en la aplicación); asociar animales a una granja es US-10.
+
+### Cambio de esquema: asociar animales a una granja (US-10)
+
+US-10 agrega la tabla `animal_farm_assignments` (historial de cambios de granja) y los endpoints `PUT /api/v1/animals/{animalId}/farm`, `GET /api/v1/animals/{animalId}/farm-history` y `GET /api/v1/farms/{farmId}/animals`. No cambia `animals` ni `farms`. Con `ddl-auto: update` (`dev`) Hibernate crea la tabla sola. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearla manualmente antes de desplegar:
+
+```sql
+CREATE TABLE animal_farm_assignments (
+    id            uuid PRIMARY KEY,
+    animal_id     uuid NOT NULL,
+    from_farm_id  uuid,
+    to_farm_id    uuid NOT NULL,
+    assigned_at   timestamp(6) with time zone NOT NULL
+);
+CREATE INDEX ix_animal_farm_assignments_animal ON animal_farm_assignments (animal_id);
+```
+
+- Cada asignación o cambio agrega **una fila** y nunca se modifica ni se borra (escenario 2 de la historia: se conserva el historial). `from_farm_id` es `NULL` en la primera asignación. Repetir la misma granja no agrega fila (`PUT` idempotente).
+- Según el informe cada animal pertenece a una finca: se puede **asignar y cambiar** de granja, pero no dejar al animal sin ella (`farmId` nulo → `400`).
+- `PUT` valida que existan el animal y la granja (`404` en otro caso). `POST /api/v1/animals` con `farmId` ahora también valida la granja (`404`) y registra la primera asignación en el historial.
+- `GET /farms/{farmId}/animals` lista por arete y, como el inventario, solo los `ACTIVE` salvo que se pida `?status=`. `404` si la granja no existe.
+- Limitación: el animal no tiene dueño (IAM aún no está integrado), así que no se valida que la granja sea del mismo ganadero que el animal.
+
 ### Cambio de esquema: Analytics & Alerts (US-21)
 
 Se agregan las tablas `analytics`, `livestock_trends` y `alerts`. Con `ddl-auto: update` (`dev`) Hibernate las crea solo, incluidas las FK y la restricción única. En `prod` (`ddl-auto: validate`, sin Flyway ni Liquibase) hay que crearlas manualmente antes de desplegar:

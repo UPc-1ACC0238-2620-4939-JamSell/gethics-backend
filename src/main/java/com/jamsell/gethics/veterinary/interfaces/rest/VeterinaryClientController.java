@@ -7,6 +7,7 @@ import com.jamsell.gethics.veterinary.interfaces.rest.resources.AssignClientReso
 import com.jamsell.gethics.veterinary.interfaces.rest.resources.AssignedClientsResource;
 import com.jamsell.gethics.veterinary.interfaces.rest.resources.AssignmentResource;
 import com.jamsell.gethics.veterinary.interfaces.rest.transform.VeterinaryAssignmentAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Veterinary")
 @RestController
 @RequestMapping("/api/v1/vet")
 public class VeterinaryClientController {
