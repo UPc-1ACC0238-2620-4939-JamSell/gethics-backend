@@ -8,6 +8,7 @@ import com.jamsell.gethics.veterinary.interfaces.rest.resources.RegisterCareReso
 import com.jamsell.gethics.veterinary.interfaces.rest.resources.SyncCareResource;
 import com.jamsell.gethics.veterinary.interfaces.rest.resources.SyncCareResponseResource;
 import com.jamsell.gethics.veterinary.interfaces.rest.transform.CareRecordAssembler;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Veterinary")
 @RestController
 @RequestMapping("/api/v1/vet")
 public class VeterinaryCareController {
