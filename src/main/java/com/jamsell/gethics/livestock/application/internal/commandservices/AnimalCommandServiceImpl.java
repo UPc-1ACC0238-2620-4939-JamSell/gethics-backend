@@ -1,9 +1,11 @@
 package com.jamsell.gethics.livestock.application.internal.commandservices;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.exceptions.FarmNotFoundException;
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
+import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.entities.AnimalFarmAssignment;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalFarmAssignmentRepository;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalRepository;
@@ -54,6 +56,31 @@ public class AnimalCommandServiceImpl implements AnimalCommandService {
         if (saved.getFarmId() != null) {
             // Un animal registrado ya en una granja deja su primera asignacion en el historial (US-10).
             assignments.save(AnimalFarmAssignment.record(saved.getId(), null, saved.getFarmId(), Instant.now(clock)));
+        }
+        return saved;
+    }
+
+    /** US-07, Escenario 1: carga el animal, aplica los cambios y persiste. */
+    @Override
+    @Transactional
+    public Animal handle(UpdateAnimalCommand command) {
+        var animal = repository.findById(command.animalId())
+                .orElseThrow(() -> new AnimalNotFoundException(command.animalId()));
+        animal.updateDetails(command, LocalDate.now(clock));
+        // Si el formulario trae otra granja, el cambio sigue la regla de US-10: la granja debe existir, el animal no
+        // puede quedarse sin granja (null = sin cambio) y el movimiento queda en el historial.
+        var previousFarmId = animal.getFarmId();
+        var newFarmId = command.farmId();
+        boolean moved = false;
+        if (newFarmId != null && !newFarmId.equals(previousFarmId)) {
+            if (!farms.existsById(newFarmId)) {
+                throw new FarmNotFoundException();
+            }
+            moved = animal.assignToFarm(newFarmId);
+        }
+        var saved = repository.save(animal);
+        if (moved) {
+            assignments.save(AnimalFarmAssignment.record(saved.getId(), previousFarmId, newFarmId, Instant.now(clock)));
         }
         return saved;
     }

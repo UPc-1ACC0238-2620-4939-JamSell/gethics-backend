@@ -2,10 +2,14 @@ package com.jamsell.gethics.livestock.interfaces.rest.transform;
 
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
+import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalsQuery;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalListResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.RegisterAnimalResource;
+import com.jamsell.gethics.livestock.interfaces.rest.resources.UpdateAnimalResource;
+
+import java.util.UUID;
 
 import java.util.List;
 
@@ -19,6 +23,11 @@ public final class AnimalAssembler {
 
     public static RegisterAnimalCommand toCommand(RegisterAnimalResource resource) {
         return new RegisterAnimalCommand(resource.tag(), resource.name(), resource.breed(), resource.sex(),
+                resource.birthDate(), resource.initialWeightKg(), resource.photoUrl(), resource.farmId());
+    }
+
+    public static UpdateAnimalCommand toCommand(UUID animalId, UpdateAnimalResource resource) {
+        return new UpdateAnimalCommand(animalId, resource.name(), resource.breed(), resource.sex(),
                 resource.birthDate(), resource.initialWeightKg(), resource.photoUrl(), resource.farmId());
     }
 
