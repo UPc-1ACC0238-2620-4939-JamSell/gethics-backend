@@ -4,6 +4,8 @@ import com.jamsell.gethics.notifications.domain.model.commands.SendPushNotificat
 import com.jamsell.gethics.notifications.domain.services.NotificationDispatchCommandService;
 import com.jamsell.gethics.notifications.interfaces.rest.resources.PushNotificationResultResource;
 import com.jamsell.gethics.notifications.interfaces.rest.resources.SendPushNotificationResource;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Notifications")
 @RestController
 @RequestMapping("/api/v1/notifications")
 public class PushNotificationController {
@@ -22,6 +25,7 @@ public class PushNotificationController {
         this.dispatchService = dispatchService;
     }
 
+    @Operation(summary = "Enviar una notificacion push respetando la preferencia del usuario (US-22)")
     @PostMapping
     public ResponseEntity<PushNotificationResultResource> send(@Valid @RequestBody SendPushNotificationResource resource) {
         var command = new SendPushNotificationCommand(

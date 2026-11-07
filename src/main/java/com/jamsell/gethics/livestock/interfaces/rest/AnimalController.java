@@ -10,6 +10,7 @@ import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.RegisterAnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.UpdateAnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.transform.AnimalAssembler;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -57,6 +58,7 @@ public class AnimalController {
     }
 
     /** US-07: precarga los datos del animal antes de editarlo. */
+    @Operation(summary = "Obtener un animal por id (US-07)")
     @GetMapping("/{id}")
     public ResponseEntity<AnimalResource> getAnimal(@PathVariable UUID id) {
         var animal = queryService.handle(new GetAnimalByIdQuery(id));
@@ -64,6 +66,7 @@ public class AnimalController {
     }
 
     /** US-07, Escenario 1: guarda los cambios del animal. El "Cancelar" del Escenario 2 no llega a esta API. */
+    @Operation(summary = "Editar los datos de un animal registrado (US-07)")
     @PutMapping("/{id}")
     public ResponseEntity<AnimalResource> updateAnimal(@PathVariable UUID id,
                                                         @Valid @RequestBody UpdateAnimalResource resource) {

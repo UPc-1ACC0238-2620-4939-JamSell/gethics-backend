@@ -8,6 +8,7 @@ import com.jamsell.gethics.finance.interfaces.rest.resources.RegisterTransaction
 import com.jamsell.gethics.finance.interfaces.rest.resources.TransactionResource;
 import com.jamsell.gethics.finance.interfaces.rest.transform.RegisterTransactionCommandFromResourceAssembler;
 import com.jamsell.gethics.finance.interfaces.rest.transform.TransactionResourceFromEntityAssembler;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -49,6 +50,7 @@ public class FinancialTransactionController {
                 .body(TransactionResourceFromEntityAssembler.toResourceFromEntity(transaction));
     }
 
+    @Operation(summary = "Consultar el balance financiero, opcionalmente por periodo (US-16)")
     @GetMapping
     public ResponseEntity<FinancialSummaryResource> getSummary(
             @RequestParam UUID ownerId,

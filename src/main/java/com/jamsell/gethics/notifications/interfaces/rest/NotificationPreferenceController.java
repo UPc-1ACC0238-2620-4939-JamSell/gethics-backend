@@ -6,6 +6,8 @@ import com.jamsell.gethics.notifications.domain.services.NotificationPreferenceC
 import com.jamsell.gethics.notifications.domain.services.NotificationPreferenceQueryService;
 import com.jamsell.gethics.notifications.interfaces.rest.resources.NotificationPreferenceResource;
 import com.jamsell.gethics.notifications.interfaces.rest.resources.SetNotificationPreferenceResource;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Notifications")
 @RestController
 @RequestMapping("/api/v1/users/{userId}/notification-preference")
 public class NotificationPreferenceController {
@@ -29,12 +32,14 @@ public class NotificationPreferenceController {
         this.queryService = queryService;
     }
 
+    @Operation(summary = "Consultar si el usuario tiene activas las notificaciones push (US-22)")
     @GetMapping
     public ResponseEntity<NotificationPreferenceResource> get(@PathVariable UUID userId) {
         var pushEnabled = queryService.handle(new GetNotificationPreferenceQuery(userId));
         return ResponseEntity.ok(new NotificationPreferenceResource(userId, pushEnabled));
     }
 
+    @Operation(summary = "Activar o desactivar las notificaciones push del usuario (US-22)")
     @PutMapping
     public ResponseEntity<NotificationPreferenceResource> update(@PathVariable UUID userId,
                                                                   @Valid @RequestBody SetNotificationPreferenceResource resource) {
