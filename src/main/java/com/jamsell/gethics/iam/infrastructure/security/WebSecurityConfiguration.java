@@ -49,6 +49,10 @@ public class WebSecurityConfiguration {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Transicion: los contextos de /api/v1 aun no estan migrados a identidad JWT (el dueno llega
+                        // como ownerId UUID y el id de usuario de IAM es Long, sin correspondencia). Se mantienen
+                        // publicos como antes de IAM; al migrar cada contexto, quitar esta regla y usar el principal.
+                        .requestMatchers("/api/v1/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(
                         new BearerAuthorizationRequestFilter(tokenService, userDetailsService),
