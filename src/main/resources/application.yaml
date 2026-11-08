@@ -28,6 +28,11 @@ management:
     web:
       exposure:
         include: health,info
+  # El SMTP es opcional: solo se chequea cuando se usa (MAIL_ENABLED=true). Sin SMTP, el contributor "mail" marcaria
+  # toda la app como DOWN. El resto de contributors (db, diskSpace, ping...) sigue activo.
+  health:
+    mail:
+      enabled: ${app.mail.enabled:false}
 
 # IAM. El secreto del JWT (minimo 32 caracteres) NO tiene valor por defecto aqui: dev lo define en application-dev.yaml
 # y prod exige la variable de entorno JWT_SECRET.
