@@ -101,3 +101,4 @@ class FinancialTransactionControllerTest {
         getSummary("").andExpect(status().isBadRequest());
     }
 }
+

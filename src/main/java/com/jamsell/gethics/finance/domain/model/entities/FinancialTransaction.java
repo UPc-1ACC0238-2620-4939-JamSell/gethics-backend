@@ -50,6 +50,10 @@ public class FinancialTransaction {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    // NUEVO CAMPO PARA LA US-31
+    @Column(name = "is_voided", nullable = false)
+    private boolean isVoided = false;
+
     public FinancialTransaction(FinancialManagement financialManagement, FinancialTransactionType type,
                                 BigDecimal amount, String category, LocalDate occurredOn, String description) {
         this.financialManagement = financialManagement;
@@ -58,5 +62,15 @@ public class FinancialTransaction {
         this.category = category;
         this.occurredOn = occurredOn;
         this.description = description;
+        this.isVoided = false;
+    }
+
+    // NUEVOS MÉTODOS DE NEGOCIO PARA ANULAR
+    public boolean isVoided() {
+        return this.isVoided;
+    }
+
+    public void voidTransaction() {
+        this.isVoided = true;
     }
 }

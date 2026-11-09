@@ -56,3 +56,4 @@ class FinancialManagementTest {
         assertEquals(0, financialManagement.getTransactions().size());
     }
 }
+
