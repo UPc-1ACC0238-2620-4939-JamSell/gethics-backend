@@ -1,5 +1,6 @@
 package com.jamsell.gethics.finance.interfaces.rest;
 
+import com.jamsell.gethics.finance.domain.model.commands.VoidTransactionCommand;
 import com.jamsell.gethics.finance.domain.model.queries.GetFinancialSummaryByOwnerQuery;
 import com.jamsell.gethics.finance.domain.services.FinancialManagementCommandService;
 import com.jamsell.gethics.finance.domain.services.FinancialManagementQueryService;
@@ -16,13 +17,7 @@ import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Finance")
 @RestController
@@ -67,6 +62,13 @@ public class FinancialTransactionController {
         return ResponseEntity.ok(new FinancialSummaryResource(
                 ownerId, summary.totalIncome(), summary.totalExpense(), summary.netBalance(), transactions,
                 message));
+    }
+
+    @PostMapping("/{id}/void")
+    public ResponseEntity<Void> voidTransaction(@PathVariable UUID id) {
+        var command = new VoidTransactionCommand(id);
+        commandService.handle(command);
+        return ResponseEntity.noContent().build();
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
