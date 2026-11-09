@@ -102,3 +102,4 @@ class FinancialManagementQueryServiceImplTest {
                 () -> service.handle(new GetFinancialSummaryByOwnerQuery(ownerId, from, to)));
     }
 }
+
