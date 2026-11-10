@@ -3,7 +3,9 @@ package com.jamsell.gethics.sanitary.application.internal.commandservices;
 import com.jamsell.gethics.sanitary.domain.exceptions.FutureEventDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
+import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
+import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
@@ -126,5 +128,66 @@ class ClinicalHistoryCommandServiceImplTest {
                 new CompleteScheduledEventCommand(animalId, UUID.randomUUID(), TODAY.atTime(9, 0), null)));
 
         verify(repository, never()).save(any());
+    }
+
+    // ---- US-33: cancelacion ----
+
+    private ClinicalHistory historyWithScheduledEvent() {
+        var history = new ClinicalHistory(animalId);
+        var scheduled = history.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(3), "Aftosa", TODAY);
+        ReflectionTestUtils.setField(scheduled, "id", UUID.randomUUID());
+        return history;
+    }
+
+    @Test
+    void cancelsTheScheduledEventAndSavesTheHistory() {
+        var existing = historyWithScheduledEvent();
+        var scheduled = existing.getEvents().getFirst();
+        when(repository.findByAnimalId(animalId)).thenReturn(Optional.of(existing));
+
+        var event = service.handle(new CancelScheduledEventCommand(animalId, scheduled.getId()));
+
+        verify(repository).save(existing);
+        assertSame(scheduled, event);
+        assertEquals(1, existing.getEvents().size());
+        assertEquals(SanitaryEventStatus.CANCELLED, event.getStatus());
+    }
+
+    @Test
+    void cancellingForAnAnimalWithoutHistoryIsNotFound() {
+        when(repository.findByAnimalId(animalId)).thenReturn(Optional.empty());
+
+        assertThrows(SanitaryEventNotFoundException.class,
+                () -> service.handle(new CancelScheduledEventCommand(animalId, UUID.randomUUID())));
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void cancellingAnEventThatBelongsToAnotherAnimalIsNotFound() {
+        // El evento existe, pero en el historial de OTRO animal: el del animal indicado no lo contiene.
+        var otherAnimalsEvent = historyWithScheduledEvent().getEvents().getFirst();
+        var existing = new ClinicalHistory(animalId);
+        when(repository.findByAnimalId(animalId)).thenReturn(Optional.of(existing));
+
+        assertThrows(SanitaryEventNotFoundException.class,
+                () -> service.handle(new CancelScheduledEventCommand(animalId, otherAnimalsEvent.getId())));
+
+        verify(repository, never()).save(any());
+        assertEquals(SanitaryEventStatus.SCHEDULED, otherAnimalsEvent.getStatus());
+    }
+
+    @Test
+    void cancellingAnEventThatIsNoLongerScheduledIsRejectedAndNothingIsSaved() {
+        var existing = historyWithScheduledEvent();
+        var scheduled = existing.getEvents().getFirst();
+        existing.completeScheduledEvent(scheduled.getId(), TODAY.atTime(9, 0), null, TODAY);
+        when(repository.findByAnimalId(animalId)).thenReturn(Optional.of(existing));
+
+        assertThrows(SanitaryEventNotScheduledException.class,
+                () -> service.handle(new CancelScheduledEventCommand(animalId, scheduled.getId())));
+
+        verify(repository, never()).save(any());
+        assertEquals(SanitaryEventStatus.COMPLETED, scheduled.getStatus());
     }
 }

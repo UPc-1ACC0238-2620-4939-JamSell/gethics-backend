@@ -101,4 +101,15 @@ public class SanitaryEvent {
         }
         this.status = SanitaryEventStatus.COMPLETED;
     }
+
+    /**
+     * US-33: cancela ESTE evento programado (SCHEDULED -> CANCELLED). No se borra: queda en el historial clinico y sale
+     * del calendario y de los recordatorios, que solo leen eventos SCHEDULED.
+     */
+    public void cancel() {
+        if (status != SanitaryEventStatus.SCHEDULED) {
+            throw SanitaryEventNotScheduledException.forCancellation();
+        }
+        this.status = SanitaryEventStatus.CANCELLED;
+    }
 }

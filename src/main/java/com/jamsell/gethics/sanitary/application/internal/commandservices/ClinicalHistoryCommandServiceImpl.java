@@ -2,6 +2,7 @@ package com.jamsell.gethics.sanitary.application.internal.commandservices;
 
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
+import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
@@ -53,6 +54,17 @@ public class ClinicalHistoryCommandServiceImpl implements ClinicalHistoryCommand
                 .orElseThrow(SanitaryEventNotFoundException::new);
         var event = history.completeScheduledEvent(command.eventId(), command.occurredAt(), command.description(),
                 LocalDate.now(clock));
+        repository.save(history);
+        return event;
+    }
+
+    /** US-33: un animal sin historial no tiene eventos que cancelar (404, como al completar). */
+    @Override
+    @Transactional
+    public SanitaryEvent handle(CancelScheduledEventCommand command) {
+        var history = repository.findByAnimalId(command.animalId())
+                .orElseThrow(SanitaryEventNotFoundException::new);
+        var event = history.cancelScheduledEvent(command.eventId());
         repository.save(history);
         return event;
     }

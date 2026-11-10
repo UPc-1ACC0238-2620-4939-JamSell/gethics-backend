@@ -118,7 +118,7 @@ class SanitaryCalendarPersistenceTest {
         var cancelled = h.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(5), "cancelado", SCHEDULED_ON);
         var active = h.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(6), "vigente", SCHEDULED_ON);
         persist(h);
-        // No existe comportamiento de cancelacion (fuera de alcance): se simula directamente en la BD.
+        // Filtro de la consulta aislado del dominio: se simula directamente en la BD (el flujo real de US-33 va abajo).
         em.createNativeQuery("update sanitary_events set status = 'CANCELLED' where id = :id")
                 .setParameter("id", cancelled.getId()).executeUpdate();
         em.clear();
@@ -126,6 +126,26 @@ class SanitaryCalendarPersistenceTest {
         var returned = calendar(2041, 3);
 
         assertEquals(List.of(active.getId()), returnedAmong(returned, cancelled, active));
+    }
+
+    @Test
+    void eventCancelledThroughTheAggregateIsPersistedAndLeavesTheCalendar() {
+        var h = history();
+        var toCancel = h.scheduleEvent(SanitaryEventType.VACCINATION, MARCH.plusDays(5), "a cancelar", SCHEDULED_ON);
+        var active = h.scheduleEvent(SanitaryEventType.VACCINATION, MARCH.plusDays(6), "vigente", SCHEDULED_ON);
+        persist(h);
+        assertEquals(List.of(toCancel.getId(), active.getId()), returnedAmong(calendar(2041, 3), toCancel, active));
+
+        // Mismo camino que el command service de US-33: cargar el aggregate del animal, cancelar y guardar.
+        var loaded = histories.findByAnimalId(h.getAnimalId()).orElseThrow();
+        loaded.cancelScheduledEvent(toCancel.getId());
+        persist(loaded);
+
+        assertEquals(List.of(active.getId()), returnedAmong(calendar(2041, 3), toCancel, active));
+        var stored = em.find(SanitaryEvent.class, toCancel.getId()); // no se borra fisicamente
+        assertNotNull(stored);
+        assertEquals(SanitaryEventStatus.CANCELLED, stored.getStatus());
+        assertEquals(MARCH.plusDays(5), stored.getScheduledDate());
     }
 
     @Test

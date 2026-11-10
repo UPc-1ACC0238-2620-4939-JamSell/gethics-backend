@@ -5,6 +5,7 @@ import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
+import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
@@ -222,6 +223,57 @@ class SanitaryEventControllerTest {
         postJson("/" + UUID.randomUUID() + "/complete", "{}")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("La fecha de aplicacion es obligatoria."));
+        verifyNoInteractions(commandService);
+    }
+
+    // ---- Cancelacion de un evento programado (US-33): POST sin body ----
+
+    private ResultActions postWithoutBody(String path) throws Exception {
+        return mockMvc.perform(post(url + path).with(csrf()));
+    }
+
+    @Test
+    void cancelsTheScheduledEventWithoutBodyAndReturns200() throws Exception {
+        var scheduledDate = LocalDate.now().plusDays(3);
+        var event = new ClinicalHistory(animalId).scheduleEvent(SanitaryEventType.VACCINATION, scheduledDate, "Aftosa", LocalDate.now());
+        var eventId = UUID.randomUUID();
+        ReflectionTestUtils.setField(event, "id", eventId);
+        event.cancel();
+        when(commandService.handle(any(CancelScheduledEventCommand.class))).thenReturn(event);
+
+        postWithoutBody("/" + eventId + "/cancel")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(eventId.toString()))
+                .andExpect(jsonPath("$.animalId").value(animalId.toString()))
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.scheduledDate").value(scheduledDate.toString()))
+                .andExpect(jsonPath("$.occurredAt").doesNotExist());
+
+        verify(commandService).handle(new CancelScheduledEventCommand(animalId, eventId));
+    }
+
+    @Test
+    void cancellingAnUnknownEventReturns404() throws Exception {
+        when(commandService.handle(any(CancelScheduledEventCommand.class))).thenThrow(new SanitaryEventNotFoundException());
+
+        postWithoutBody("/" + UUID.randomUUID() + "/cancel")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("El evento sanitario no existe para este animal."));
+    }
+
+    @Test
+    void cancellingAnEventThatIsNotScheduledReturns409WithMessage() throws Exception {
+        when(commandService.handle(any(CancelScheduledEventCommand.class)))
+                .thenThrow(SanitaryEventNotScheduledException.forCancellation());
+
+        postWithoutBody("/" + UUID.randomUUID() + "/cancel")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Solo un evento programado (SCHEDULED) puede cancelarse."));
+    }
+
+    @Test
+    void cancellingWithANonUuidEventIdReturns400WithoutReachingTheService() throws Exception {
+        postWithoutBody("/123/cancel").andExpect(status().isBadRequest());
         verifyNoInteractions(commandService);
     }
 }

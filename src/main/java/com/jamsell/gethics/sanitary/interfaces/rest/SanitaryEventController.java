@@ -1,5 +1,6 @@
 package com.jamsell.gethics.sanitary.interfaces.rest;
 
+import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.services.ClinicalHistoryCommandService;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.CompleteSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.RegisterSanitaryEventResource;
@@ -48,6 +49,13 @@ public class SanitaryEventController {
             @PathVariable UUID eventId,
             @Valid @RequestBody CompleteSanitaryEventResource resource) {
         var event = commandService.handle(SanitaryEventAssembler.toCommand(animalId, eventId, resource));
+        return SanitaryEventAssembler.toResource(event);
+    }
+
+    /** US-33: cancela el evento programado (SCHEDULED -> CANCELLED) sin borrarlo. Sin body: la accion no lleva datos. */
+    @PostMapping("/{eventId}/cancel")
+    public SanitaryEventResource cancelScheduledEvent(@PathVariable UUID animalId, @PathVariable UUID eventId) {
+        var event = commandService.handle(new CancelScheduledEventCommand(animalId, eventId));
         return SanitaryEventAssembler.toResource(event);
     }
 }
