@@ -35,4 +35,10 @@ interface SanitaryEventJpaRepository extends JpaRepository<SanitaryEvent, UUID> 
     /** US-35: join fetch para comparar el animal del evento fuera de una transaccion (open-in-view = false). */
     @Query("select e from SanitaryEvent e join fetch e.clinicalHistory where e.clientRequestId = :clientRequestId")
     Optional<SanitaryEvent> findByClientRequestId(@Param("clientRequestId") UUID clientRequestId);
+
+    @Query("""
+            select e from SanitaryEvent e join fetch e.clinicalHistory h
+            where h.animalId in :animalIds
+              and e.status = com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus.COMPLETED""")
+    List<SanitaryEvent> findCompletedByAnimalIds(@Param("animalIds") java.util.Collection<UUID> animalIds);
 }
