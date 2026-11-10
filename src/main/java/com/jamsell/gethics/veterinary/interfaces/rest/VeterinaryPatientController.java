@@ -7,6 +7,9 @@ import com.jamsell.gethics.veterinary.interfaces.rest.resources.ClientPatientsRe
 import com.jamsell.gethics.veterinary.interfaces.rest.transform.PatientResourceAssembler;
 import java.util.Map;
 import java.util.UUID;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +33,12 @@ public class VeterinaryPatientController {
         this.queryService = queryService;
     }
 
+    @Operation(summary = "Consultar los pacientes de un cliente",
+            description = "US-18 / TS07: animales activos del cliente (datos reales del modulo de ganaderia) con el resumen de su historial clinico. Los animales dados de baja no aparecen. El cliente debe estar asignado al veterinario.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Pacientes del cliente (puede venir vacio con un mensaje)"),
+        @ApiResponse(responseCode = "403", description = "El cliente no esta asignado a este veterinario")
+    })
     @GetMapping("/{clientId}/animals")
     public ResponseEntity<ClientPatientsResource> getPatients(@PathVariable UUID clientId,
                                                               @RequestParam UUID veterinarianId) {

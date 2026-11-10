@@ -62,3 +62,11 @@ gethics:
     reminders:
       cron: 0 0 8 * * *
       zone: America/Lima
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    # TS04: la documentacion queda disponible en /docs (ruta ya permitida en WebSecurityConfiguration).
+    path: /docs
+    operations-sorter: method
+    tags-sorter: alpha
