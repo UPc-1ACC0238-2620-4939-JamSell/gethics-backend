@@ -17,7 +17,6 @@ import com.jamsell.gethics.veterinary.domain.model.valueobjects.VeterinaryAssign
 import com.jamsell.gethics.veterinary.infrastructure.persistence.jpa.repositories.VeterinaryAssignmentRepository;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -63,7 +62,7 @@ class VeterinaryPatientQueryServiceImplTest {
         var patient = new PatientInfo(patientId, "Lola", "TAG-001", "Holstein", "ACTIVE");
         var summary = new ClinicalSummary(3, LocalDate.of(2026, 9, 20), "VACCINATION");
         when(patientsLookup.findPatientsByClientId(clientId)).thenReturn(List.of(patient));
-        when(summaryLookup.findSummaryByPatientId(patientId)).thenReturn(Optional.of(summary));
+        when(summaryLookup.findSummariesByPatientIds(List.of(patientId))).thenReturn(java.util.Map.of(patientId, summary));
 
         var result = service.handle(new GetClientPatientsQuery(veterinarianId, clientId));
 
@@ -78,7 +77,7 @@ class VeterinaryPatientQueryServiceImplTest {
         var patientId = UUID.randomUUID();
         var patient = new PatientInfo(patientId, "Rocio", "TAG-002", "Brown Swiss", "ACTIVE");
         when(patientsLookup.findPatientsByClientId(clientId)).thenReturn(List.of(patient));
-        when(summaryLookup.findSummaryByPatientId(patientId)).thenReturn(Optional.empty());
+        when(summaryLookup.findSummariesByPatientIds(List.of(patientId))).thenReturn(java.util.Map.of());
 
         var result = service.handle(new GetClientPatientsQuery(veterinarianId, clientId));
 
