@@ -15,7 +15,9 @@ import com.jamsell.gethics.iot.domain.exceptions.DuplicateDeviceCodeException;
 import com.jamsell.gethics.iot.domain.model.aggregates.Device;
 import com.jamsell.gethics.iot.domain.model.commands.LinkDeviceCommand;
 import com.jamsell.gethics.iot.domain.model.commands.RegisterSensorReadingCommand;
+import com.jamsell.gethics.iot.domain.model.queries.GetDeviceReadingsQuery;
 import com.jamsell.gethics.iot.domain.model.queries.GetDevicesByOwnerQuery;
+import com.jamsell.gethics.iot.domain.model.valueobjects.SensorReadingPage;
 import com.jamsell.gethics.iot.domain.services.DeviceCommandService;
 import com.jamsell.gethics.iot.domain.services.DeviceQueryService;
 import java.math.BigDecimal;
@@ -136,5 +138,96 @@ class DeviceControllerTest {
                 .andExpect(jsonPath("$.message").isNotEmpty());
 
         verifyNoInteractions(commandService);
+    }
+
+    // --- US-37: lecturas de un dispositivo ---
+
+    @Test
+    void listReadingsReturns200WithThePageOfReadings() throws Exception {
+        var device = Device.link(new LinkDeviceCommand(UUID.randomUUID(), "MX-DEV-1"), NOW);
+        var newest = device.registerReading("temperature", new BigDecimal("38.2"), NOW.plusHours(2), NOW.plusHours(2));
+        var older = device.registerReading("temperature", new BigDecimal("36.5"), NOW.plusHours(1), NOW.plusHours(1));
+        var deviceId = UUID.randomUUID();
+        when(queryService.handle(any(GetDeviceReadingsQuery.class)))
+                .thenReturn(new SensorReadingPage(List.of(newest, older), 0, 20, 2, 1));
+
+        mockMvc.perform(get(URL + "/" + deviceId + "/readings"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].metric").value("temperature"))
+                .andExpect(jsonPath("$.content[0].value").value(38.2))
+                .andExpect(jsonPath("$.content[0].recordedAt").value("2042-06-07T10:00:00"))
+                .andExpect(jsonPath("$.content[1].value").value(36.5))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1));
+
+        // Sin page ni size se usan los valores por defecto (0 y 20).
+        verify(queryService).handle(new GetDeviceReadingsQuery(deviceId, 0, 20));
+    }
+
+    @Test
+    void listReadingsPassesThePageAndSizeRequested() throws Exception {
+        var deviceId = UUID.randomUUID();
+        when(queryService.handle(any(GetDeviceReadingsQuery.class)))
+                .thenReturn(new SensorReadingPage(List.of(), 2, 5, 11, 3));
+
+        mockMvc.perform(get(URL + "/" + deviceId + "/readings").param("page", "2").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(2))
+                .andExpect(jsonPath("$.size").value(5));
+
+        verify(queryService).handle(new GetDeviceReadingsQuery(deviceId, 2, 5));
+    }
+
+    @Test
+    void listReadingsOfADeviceWithoutReadingsReturns200WithAnEmptyPage() throws Exception {
+        when(queryService.handle(any(GetDeviceReadingsQuery.class)))
+                .thenReturn(new SensorReadingPage(List.of(), 0, 20, 0, 0));
+
+        mockMvc.perform(get(URL + "/" + UUID.randomUUID() + "/readings"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.totalPages").value(0));
+    }
+
+    @Test
+    void listReadingsOfAnUnknownDeviceReturns404WithAMessage() throws Exception {
+        var deviceId = UUID.randomUUID();
+        when(queryService.handle(any(GetDeviceReadingsQuery.class))).thenThrow(new DeviceNotFoundException(deviceId));
+
+        mockMvc.perform(get(URL + "/" + deviceId + "/readings"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No se encontro el dispositivo " + deviceId + "."));
+    }
+
+    @Test
+    void listReadingsWithASizeAboveTheMaximumReturns400WithoutCallingTheService() throws Exception {
+        mockMvc.perform(get(URL + "/" + UUID.randomUUID() + "/readings").param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("El parametro size debe estar entre 1 y 100."));
+
+        verifyNoInteractions(queryService);
+    }
+
+    @Test
+    void listReadingsWithANegativePageReturns400WithoutCallingTheService() throws Exception {
+        mockMvc.perform(get(URL + "/" + UUID.randomUUID() + "/readings").param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("El parametro page no puede ser negativo."));
+
+        verifyNoInteractions(queryService);
+    }
+
+    @Test
+    void listReadingsWithAnIdThatIsNotAUuidReturns400() throws Exception {
+        mockMvc.perform(get(URL + "/MX-DEV-1/readings"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").isNotEmpty());
+
+        verifyNoInteractions(queryService);
     }
 }
