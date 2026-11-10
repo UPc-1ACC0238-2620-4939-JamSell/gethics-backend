@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 interface SanitaryEventJpaRepository extends JpaRepository<SanitaryEvent, UUID> {
@@ -30,4 +31,8 @@ interface SanitaryEventJpaRepository extends JpaRepository<SanitaryEvent, UUID> 
             order by e.createdAt asc""")
     List<SanitaryEvent> findVaccinationsAwaitingReminder(@Param("eventDate") LocalDate eventDate,
                                                          @Param("reminderTime") LocalDateTime reminderTime);
+
+    /** US-35: join fetch para comparar el animal del evento fuera de una transaccion (open-in-view = false). */
+    @Query("select e from SanitaryEvent e join fetch e.clinicalHistory where e.clientRequestId = :clientRequestId")
+    Optional<SanitaryEvent> findByClientRequestId(@Param("clientRequestId") UUID clientRequestId);
 }

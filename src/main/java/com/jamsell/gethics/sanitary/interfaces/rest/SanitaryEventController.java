@@ -1,6 +1,7 @@
 package com.jamsell.gethics.sanitary.interfaces.rest;
 
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventCreation;
 import com.jamsell.gethics.sanitary.domain.services.ClinicalHistoryCommandService;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.CompleteSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.RegisterSanitaryEventResource;
@@ -30,16 +31,20 @@ public class SanitaryEventController {
     public ResponseEntity<SanitaryEventResource> registerSanitaryEvent(
             @PathVariable UUID animalId,
             @Valid @RequestBody RegisterSanitaryEventResource resource) {
-        var event = commandService.handle(SanitaryEventAssembler.toCommand(animalId, resource));
-        return ResponseEntity.status(HttpStatus.CREATED).body(SanitaryEventAssembler.toResource(event));
+        return created(commandService.handle(SanitaryEventAssembler.toCommand(animalId, resource)));
     }
 
     @PostMapping("/scheduled")
     public ResponseEntity<SanitaryEventResource> scheduleSanitaryEvent(
             @PathVariable UUID animalId,
             @Valid @RequestBody ScheduleSanitaryEventResource resource) {
-        var event = commandService.handle(SanitaryEventAssembler.toCommand(animalId, resource));
-        return ResponseEntity.status(HttpStatus.CREATED).body(SanitaryEventAssembler.toResource(event));
+        return created(commandService.handle(SanitaryEventAssembler.toCommand(animalId, resource)));
+    }
+
+    /** US-35 (como US-19): 201 si se creo el evento; 200 si un reintento con el mismo clientRequestId devolvio el existente. */
+    private static ResponseEntity<SanitaryEventResource> created(SanitaryEventCreation creation) {
+        var status = creation.created() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(SanitaryEventAssembler.toResource(creation.event()));
     }
 
     /** Registra como aplicado el MISMO evento programado (SCHEDULED -> COMPLETED); no crea un evento nuevo. */

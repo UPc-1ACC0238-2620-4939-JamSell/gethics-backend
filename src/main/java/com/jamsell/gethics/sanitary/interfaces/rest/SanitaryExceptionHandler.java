@@ -5,6 +5,7 @@ import com.jamsell.gethics.sanitary.domain.exceptions.InvalidCalendarPeriodExcep
 import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
+import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventRequestConflictException;
 import com.jamsell.gethics.shared.interfaces.rest.resources.ErrorResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice(basePackageClasses = SanitaryEventController.class)
 public class SanitaryExceptionHandler {
+
+    /** US-35: mismo clientRequestId con otros datos, otro animal u otra operacion (como CareConflictException de US-19). */
+    @ExceptionHandler(SanitaryEventRequestConflictException.class)
+    public ResponseEntity<ErrorResource> handleRequestConflict(SanitaryEventRequestConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResource(ex.getMessage()));
+    }
 
     @ExceptionHandler(FutureEventDateException.class)
     public ResponseEntity<ErrorResource> handleFutureDate(FutureEventDateException ex) {
