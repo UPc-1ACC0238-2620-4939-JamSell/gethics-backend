@@ -4,9 +4,11 @@ import com.jamsell.gethics.iot.domain.model.aggregates.Device;
 import com.jamsell.gethics.iot.domain.model.commands.LinkDeviceCommand;
 import com.jamsell.gethics.iot.domain.model.commands.RegisterSensorReadingCommand;
 import com.jamsell.gethics.iot.domain.model.entities.SensorReading;
+import com.jamsell.gethics.iot.domain.model.valueobjects.SensorReadingPage;
 import com.jamsell.gethics.iot.interfaces.rest.resources.DeviceResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.LinkDeviceResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.RegisterSensorReadingResource;
+import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingPageResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingResource;
 import java.util.List;
 
@@ -35,5 +37,11 @@ public final class DeviceAssembler {
     public static SensorReadingResource toResource(SensorReading reading) {
         return new SensorReadingResource(reading.getId(), reading.getMetric(), reading.getValue(),
                 reading.getRecordedAt());
+    }
+
+    public static SensorReadingPageResource toResource(SensorReadingPage page) {
+        var content = page.content().stream().map(DeviceAssembler::toResource).toList();
+        return new SensorReadingPageResource(content, page.page(), page.size(), page.totalElements(),
+                page.totalPages());
     }
 }

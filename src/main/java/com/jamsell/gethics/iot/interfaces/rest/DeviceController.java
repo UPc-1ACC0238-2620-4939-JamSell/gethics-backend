@@ -1,11 +1,13 @@
 package com.jamsell.gethics.iot.interfaces.rest;
 
+import com.jamsell.gethics.iot.domain.model.queries.GetDeviceReadingsQuery;
 import com.jamsell.gethics.iot.domain.model.queries.GetDevicesByOwnerQuery;
 import com.jamsell.gethics.iot.domain.services.DeviceCommandService;
 import com.jamsell.gethics.iot.domain.services.DeviceQueryService;
 import com.jamsell.gethics.iot.interfaces.rest.resources.DeviceResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.LinkDeviceResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.RegisterSensorReadingResource;
+import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingPageResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingResource;
 import com.jamsell.gethics.iot.interfaces.rest.transform.DeviceAssembler;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -58,5 +60,16 @@ public class DeviceController {
             @Valid @RequestBody RegisterSensorReadingResource resource) {
         var reading = commandService.handle(DeviceAssembler.toCommand(code, resource));
         return ResponseEntity.status(HttpStatus.CREATED).body(DeviceAssembler.toResource(reading));
+    }
+
+    /**
+     * US-37: lecturas de un dispositivo, de la mas reciente a la mas antigua. Sin lecturas devuelve 200 con
+     * {@code content} vacio (Escenario 2); si el dispositivo no existe, 404.
+     */
+    @GetMapping("/{id}/readings")
+    public SensorReadingPageResource listReadings(@PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return DeviceAssembler.toResource(queryService.handle(new GetDeviceReadingsQuery(id, page, size)));
     }
 }
