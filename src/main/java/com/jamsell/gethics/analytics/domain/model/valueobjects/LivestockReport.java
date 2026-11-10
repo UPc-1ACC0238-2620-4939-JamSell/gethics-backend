@@ -13,4 +13,9 @@ public record LivestockReport(
         FinanceReportSection finance,
         ReportSection health,
         ReportSection productivity) {
+
+    /** US-39: true si al menos una seccion tiene datos reales (no es solo el aviso de "datos aun limitados"). */
+    public boolean hasAnyData() {
+        return !finance.limitedData() || !health.limitedData() || !productivity.limitedData();
+    }
 }
