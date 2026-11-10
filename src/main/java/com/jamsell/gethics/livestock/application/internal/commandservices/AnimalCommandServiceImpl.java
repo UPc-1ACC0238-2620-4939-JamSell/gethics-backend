@@ -4,6 +4,7 @@ import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.exceptions.FarmNotFoundException;
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
+import com.jamsell.gethics.livestock.domain.model.commands.DeactivateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.entities.AnimalFarmAssignment;
@@ -83,5 +84,15 @@ public class AnimalCommandServiceImpl implements AnimalCommandService {
             assignments.save(AnimalFarmAssignment.record(saved.getId(), previousFarmId, newFarmId, Instant.now(clock)));
         }
         return saved;
+    }
+
+    /** US-08: baja logica. Cambia el estado a INACTIVE; no borra nada, asi el historial sanitario se conserva. */
+    @Override
+    @Transactional
+    public Animal handle(DeactivateAnimalCommand command) {
+        var animal = repository.findById(command.animalId())
+                .orElseThrow(() -> new AnimalNotFoundException(command.animalId()));
+        animal.deactivate();
+        return repository.save(animal);
     }
 }

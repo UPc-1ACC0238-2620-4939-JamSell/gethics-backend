@@ -1,5 +1,6 @@
 package com.jamsell.gethics.livestock.domain.model.aggregates;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotActiveException;
 import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalDataException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalWeightException;
@@ -174,5 +175,31 @@ class AnimalTest {
                 new UpdateAnimalCommand(animal.getId(), null, " ", null, TODAY, null, null, null), TODAY));
         assertThrows(InvalidAnimalDataException.class, () -> animal.updateDetails(
                 new UpdateAnimalCommand(animal.getId(), null, "x".repeat(61), null, TODAY, null, null, null), TODAY));
+    }
+
+    // --- US-08: baja logica ---
+
+    @Test
+    void deactivateChangesStatusToInactiveAndKeepsTheRest() {
+        var animal = register("A-1", "Jersey", TODAY, null, null);
+        var id = animal.getId();
+        var tag = animal.getTag();
+        var qr = animal.getQrCode();
+
+        animal.deactivate();
+
+        assertEquals(AnimalStatus.INACTIVE, animal.getStatus());
+        assertEquals(id, animal.getId());
+        assertEquals(tag, animal.getTag());
+        assertEquals(qr, animal.getQrCode());
+    }
+
+    @Test
+    void deactivateRejectsAnAnimalThatIsNotActive() {
+        var animal = register("A-1", "Jersey", TODAY, null, null);
+        animal.deactivate();
+
+        assertThrows(AnimalNotActiveException.class, animal::deactivate);
+        assertEquals(AnimalStatus.INACTIVE, animal.getStatus());
     }
 }

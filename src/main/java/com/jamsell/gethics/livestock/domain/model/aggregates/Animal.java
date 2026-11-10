@@ -1,5 +1,6 @@
 package com.jamsell.gethics.livestock.domain.model.aggregates;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotActiveException;
 import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalDataException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalWeightException;
@@ -140,6 +141,17 @@ public class Animal {
         this.initialWeightKg = weight;
         this.photoUrl = optionalText(command.photoUrl(), PHOTO_URL_MAX_LENGTH,
                 "La URL de la foto no puede superar 500 caracteres.");
+    }
+
+    /**
+     * US-08: baja logica. Solo un animal ACTIVE puede darse de baja; el registro, el arete, el QR y el historial
+     * (sanitario, de granjas) se conservan, solo cambia el estado a INACTIVE.
+     */
+    public void deactivate() {
+        if (this.status != AnimalStatus.ACTIVE) {
+            throw new AnimalNotActiveException();
+        }
+        this.status = AnimalStatus.INACTIVE;
     }
 
     /** Forma canonica del arete (trim + mayusculas): con ella el servicio detecta duplicados antes de guardar. */

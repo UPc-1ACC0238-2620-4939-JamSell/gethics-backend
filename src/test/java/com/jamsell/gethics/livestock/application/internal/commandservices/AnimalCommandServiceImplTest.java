@@ -1,10 +1,12 @@
 package com.jamsell.gethics.livestock.application.internal.commandservices;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotActiveException;
 import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.exceptions.FarmNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
+import com.jamsell.gethics.livestock.domain.model.commands.DeactivateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.entities.AnimalFarmAssignment;
@@ -211,5 +213,41 @@ class AnimalCommandServiceImplTest {
 
         assertEquals(farmA, updated.getFarmId());
         verifyNoInteractions(assignments);
+    }
+
+    // --- US-08: baja logica ---
+
+    @Test
+    void deactivateHandlerMarksTheAnimalInactiveAndSaves() {
+        var existing = Animal.register(command("A-1", TODAY.minusYears(1)), TODAY);
+        when(repository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(repository.save(existing)).thenReturn(existing);
+
+        var result = service.handle(new DeactivateAnimalCommand(existing.getId()));
+
+        assertEquals(AnimalStatus.INACTIVE, result.getStatus());
+        verify(repository).save(existing);
+    }
+
+    @Test
+    void deactivateHandlerThrowsNotFoundWhenAnimalIsMissing() {
+        var animalId = UUID.randomUUID();
+        when(repository.findById(animalId)).thenReturn(Optional.empty());
+
+        assertThrows(AnimalNotFoundException.class, () -> service.handle(new DeactivateAnimalCommand(animalId)));
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void deactivateHandlerRejectsAnAlreadyInactiveAnimalWithoutSaving() {
+        var existing = Animal.register(command("A-1", TODAY.minusYears(1)), TODAY);
+        existing.deactivate();
+        when(repository.findById(existing.getId())).thenReturn(Optional.of(existing));
+
+        assertThrows(AnimalNotActiveException.class,
+                () -> service.handle(new DeactivateAnimalCommand(existing.getId())));
+
+        verify(repository, never()).save(any());
     }
 }
