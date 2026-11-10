@@ -1,5 +1,6 @@
 package com.jamsell.gethics.sanitary.domain.services;
 
+import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
@@ -11,4 +12,6 @@ public interface ClinicalHistoryCommandService {
     SanitaryEvent handle(ScheduleSanitaryEventCommand command);
 
     SanitaryEvent handle(CompleteScheduledEventCommand command);
+
+    SanitaryEvent handle(CancelScheduledEventCommand command);
 }

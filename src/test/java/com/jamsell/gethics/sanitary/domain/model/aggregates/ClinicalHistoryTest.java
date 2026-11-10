@@ -183,4 +183,69 @@ class ClinicalHistoryTest {
         assertThrows(SanitaryEventNotFoundException.class,
                 () -> history.completeScheduledEvent(UUID.randomUUID(), TODAY.atTime(9, 0), null, TODAY));
     }
+
+    // ---- US-33: cancelacion ----
+
+    @Test
+    void cancellingAScheduledEventKeepsTheSameEventInTheHistoryAsCancelled() throws InterruptedException {
+        var scheduled = scheduledVaccinationWithId();
+        var before = history.getUpdatedAt();
+        Thread.sleep(2);
+
+        var cancelled = history.cancelScheduledEvent(scheduled.getId());
+
+        assertSame(scheduled, cancelled);
+        assertEquals(1, history.getEvents().size()); // no se elimina
+        assertEquals(SanitaryEventStatus.CANCELLED, cancelled.getStatus());
+        assertEquals(TODAY.plusDays(3), cancelled.getScheduledDate());
+        assertEquals("Aftosa", cancelled.getDescription());
+        assertNull(cancelled.getOccurredAt());
+        assertTrue(history.getUpdatedAt().isAfter(before));
+    }
+
+    @Test
+    void aCompletedEventCannotBeCancelled() {
+        var scheduled = scheduledVaccinationWithId();
+        history.completeScheduledEvent(scheduled.getId(), TODAY.atTime(9, 0), null, TODAY);
+
+        var ex = assertThrows(SanitaryEventNotScheduledException.class, () -> history.cancelScheduledEvent(scheduled.getId()));
+
+        assertEquals("Solo un evento programado (SCHEDULED) puede cancelarse.", ex.getMessage());
+        assertEquals(SanitaryEventStatus.COMPLETED, scheduled.getStatus());
+    }
+
+    @Test
+    void anEventRegisteredAsCompletedByUs11CannotBeCancelled() {
+        var completed = history.registerEvent(SanitaryEventType.CHECKUP, LocalDate.now().minusDays(1).atTime(8, 0), null);
+
+        assertThrows(SanitaryEventNotScheduledException.class, completed::cancel);
+        assertEquals(SanitaryEventStatus.COMPLETED, completed.getStatus());
+    }
+
+    @Test
+    void anEventCannotBeCancelledTwice() {
+        var scheduled = scheduledVaccinationWithId();
+        history.cancelScheduledEvent(scheduled.getId());
+
+        assertThrows(SanitaryEventNotScheduledException.class, () -> history.cancelScheduledEvent(scheduled.getId()));
+        assertEquals(SanitaryEventStatus.CANCELLED, scheduled.getStatus());
+    }
+
+    @Test
+    void aCancelledEventCannotBeCompleted() {
+        var scheduled = scheduledVaccinationWithId();
+        history.cancelScheduledEvent(scheduled.getId());
+
+        assertThrows(SanitaryEventNotScheduledException.class,
+                () -> history.completeScheduledEvent(scheduled.getId(), TODAY.atTime(9, 0), null, TODAY));
+        assertEquals(SanitaryEventStatus.CANCELLED, scheduled.getStatus());
+    }
+
+    @Test
+    void cancellingAnEventOfAnotherHistoryIsNotFound() {
+        var scheduled = scheduledVaccinationWithId();
+
+        assertThrows(SanitaryEventNotFoundException.class, () -> history.cancelScheduledEvent(UUID.randomUUID()));
+        assertEquals(SanitaryEventStatus.SCHEDULED, scheduled.getStatus());
+    }
 }

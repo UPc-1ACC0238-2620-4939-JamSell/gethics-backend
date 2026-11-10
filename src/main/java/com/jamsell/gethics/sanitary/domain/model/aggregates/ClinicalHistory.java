@@ -59,12 +59,24 @@ public class ClinicalHistory {
     }
 
     public SanitaryEvent completeScheduledEvent(UUID eventId, LocalDateTime occurredAt, String description, LocalDate today) {
-        var event = events.stream()
-                .filter(e -> e.getId() != null && e.getId().equals(eventId))
-                .findFirst()
-                .orElseThrow(SanitaryEventNotFoundException::new);
+        var event = findEvent(eventId);
         event.complete(occurredAt, description, today);
         updatedAt = Instant.now();
         return event;
+    }
+
+    /** US-33: solo un evento de ESTE historial (del animal indicado) puede cancelarse; otro id es "no encontrado". */
+    public SanitaryEvent cancelScheduledEvent(UUID eventId) {
+        var event = findEvent(eventId);
+        event.cancel();
+        updatedAt = Instant.now();
+        return event;
+    }
+
+    private SanitaryEvent findEvent(UUID eventId) {
+        return events.stream()
+                .filter(e -> e.getId() != null && e.getId().equals(eventId))
+                .findFirst()
+                .orElseThrow(SanitaryEventNotFoundException::new);
     }
 }
