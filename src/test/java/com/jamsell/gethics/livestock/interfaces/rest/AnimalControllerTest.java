@@ -1,9 +1,11 @@
 package com.jamsell.gethics.livestock.interfaces.rest;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotActiveException;
 import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
+import com.jamsell.gethics.livestock.domain.model.commands.DeactivateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalByIdQuery;
@@ -29,6 +31,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -271,5 +274,36 @@ class AnimalControllerTest {
         putJson(UUID.randomUUID().toString(), minimalUpdateBody())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("La fecha de nacimiento no puede ser posterior a hoy."));
+    }
+
+    // ---------------- US-08 ----------------
+
+    @Test
+    void deactivateReturns204AndCallsTheService() throws Exception {
+        var animalId = UUID.randomUUID();
+
+        mockMvc.perform(delete(URL + "/" + animalId).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(commandService).handle(new DeactivateAnimalCommand(animalId));
+    }
+
+    @Test
+    void deactivateUnknownAnimalReturns404() throws Exception {
+        var animalId = UUID.randomUUID();
+        when(commandService.handle(any(DeactivateAnimalCommand.class))).thenThrow(new AnimalNotFoundException(animalId));
+
+        mockMvc.perform(delete(URL + "/" + animalId).with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No se encontro el animal " + animalId + "."));
+    }
+
+    @Test
+    void deactivateAlreadyInactiveAnimalReturns409() throws Exception {
+        when(commandService.handle(any(DeactivateAnimalCommand.class))).thenThrow(new AnimalNotActiveException());
+
+        mockMvc.perform(delete(URL + "/" + UUID.randomUUID()).with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("El animal ya esta dado de baja."));
     }
 }

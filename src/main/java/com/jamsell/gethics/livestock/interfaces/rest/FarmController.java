@@ -7,6 +7,9 @@ import com.jamsell.gethics.livestock.interfaces.rest.resources.FarmListResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.FarmResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.RegisterFarmResource;
 import com.jamsell.gethics.livestock.interfaces.rest.transform.FarmAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,7 +28,7 @@ import java.util.UUID;
  * valida que corresponda a quien la envia ni que el usuario exista. Cuando IAM este disponible, el dueno saldra del
  * usuario autenticado y este parametro desaparecera.
  */
-@Tag(name = "Livestock")
+@Tag(name = "Livestock", description = "Animales y granjas")
 @RestController
 @RequestMapping("/api/v1/farms")
 public class FarmController {
@@ -38,6 +41,13 @@ public class FarmController {
         this.queryService = queryService;
     }
 
+    @Operation(summary = "Registrar una granja",
+            description = "Crea una granja para el dueno indicado.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Granja registrada"),
+        @ApiResponse(responseCode = "400", description = "Datos invalidos"),
+        @ApiResponse(responseCode = "409", description = "El dueno ya tiene una granja con ese nombre")
+    })
     @PostMapping
     public ResponseEntity<FarmResource> registerFarm(@Valid @RequestBody RegisterFarmResource resource) {
         var farm = commandService.handle(FarmAssembler.toCommand(resource));
@@ -45,6 +55,11 @@ public class FarmController {
     }
 
     /** Granjas del dueno por nombre ascendente. */
+    @Operation(summary = "Listar granjas del dueno",
+            description = "Devuelve las granjas del dueno ordenadas por nombre.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Listado de granjas")
+    })
     @GetMapping
     public FarmListResource listFarms(@RequestParam UUID ownerId) {
         return FarmAssembler.toListResource(queryService.handle(new GetFarmsByOwnerQuery(ownerId)));

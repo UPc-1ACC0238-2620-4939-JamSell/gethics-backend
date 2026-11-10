@@ -1,5 +1,6 @@
 package com.jamsell.gethics.livestock.interfaces.rest;
 
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotActiveException;
 import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateFarmNameException;
@@ -34,6 +35,11 @@ public class LivestockExceptionHandler {
 
     @ExceptionHandler(DuplicateAnimalTagException.class)
     public ResponseEntity<ErrorResource> handleDuplicateTag(DuplicateAnimalTagException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResource(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AnimalNotActiveException.class)
+    public ResponseEntity<ErrorResource> handleAnimalNotActive(AnimalNotActiveException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResource(ex.getMessage()));
     }
 
