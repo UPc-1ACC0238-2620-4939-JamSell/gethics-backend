@@ -1,6 +1,7 @@
 package com.jamsell.gethics.sanitary.infrastructure.persistence.jpa.repositories;
 
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
+import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.domain.repositories.ClinicalHistoryRepository;
 import org.springframework.stereotype.Repository;
 
@@ -11,9 +12,12 @@ import java.util.UUID;
 public class ClinicalHistoryRepositoryImpl implements ClinicalHistoryRepository {
 
     private final ClinicalHistoryJpaRepository jpaRepository;
+    private final SanitaryEventJpaRepository eventJpaRepository;
 
-    public ClinicalHistoryRepositoryImpl(ClinicalHistoryJpaRepository jpaRepository) {
+    public ClinicalHistoryRepositoryImpl(ClinicalHistoryJpaRepository jpaRepository,
+                                         SanitaryEventJpaRepository eventJpaRepository) {
         this.jpaRepository = jpaRepository;
+        this.eventJpaRepository = eventJpaRepository;
     }
 
     @Override
@@ -24,5 +28,10 @@ public class ClinicalHistoryRepositoryImpl implements ClinicalHistoryRepository 
     @Override
     public ClinicalHistory save(ClinicalHistory clinicalHistory) {
         return jpaRepository.saveAndFlush(clinicalHistory);
+    }
+
+    @Override
+    public Optional<SanitaryEvent> findEventByClientRequestId(UUID clientRequestId) {
+        return eventJpaRepository.findByClientRequestId(clientRequestId);
     }
 }

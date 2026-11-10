@@ -4,6 +4,8 @@ import com.jamsell.gethics.sanitary.domain.exceptions.FutureEventDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
+import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
@@ -247,5 +249,54 @@ class ClinicalHistoryTest {
 
         assertThrows(SanitaryEventNotFoundException.class, () -> history.cancelScheduledEvent(UUID.randomUUID()));
         assertEquals(SanitaryEventStatus.SCHEDULED, scheduled.getStatus());
+    }
+
+    // ---- US-35: clientRequestId y comparacion del request ----
+
+    private static final UUID REQUEST_ID = UUID.randomUUID();
+
+    @Test
+    void eventsKeepTheClientRequestIdAndItIsOptional() {
+        var registered = history.registerEvent(SanitaryEventType.CHECKUP, TODAY.atTime(8, 0), null, REQUEST_ID);
+        var scheduled = history.scheduleEvent(SanitaryEventType.VACCINATION, TODAY.plusDays(1), null, TODAY, UUID.randomUUID());
+        var legacy = history.registerEvent(SanitaryEventType.CHECKUP, TODAY.atTime(8, 0), null);
+
+        assertEquals(REQUEST_ID, registered.getClientRequestId());
+        assertNotNull(scheduled.getClientRequestId());
+        assertNull(legacy.getClientRequestId());
+    }
+
+    @Test
+    void aRegisteredEventMatchesOnlyTheSameRegisterRequest() {
+        var occurredAt = TODAY.atTime(8, 0);
+        var event = history.registerEvent(SanitaryEventType.TREATMENT, occurredAt, "Ivermectina", REQUEST_ID);
+        var animalId = history.getAnimalId();
+
+        assertTrue(event.matches(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.TREATMENT, occurredAt, "Ivermectina", REQUEST_ID)));
+        assertFalse(event.matches(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.DISEASE, occurredAt, "Ivermectina", REQUEST_ID)));
+        assertFalse(event.matches(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.TREATMENT, occurredAt.plusMinutes(1), "Ivermectina", REQUEST_ID)));
+        assertFalse(event.matches(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.TREATMENT, occurredAt, "otra", REQUEST_ID)));
+        assertFalse(event.matches(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.TREATMENT, occurredAt, null, REQUEST_ID)));
+        assertFalse(event.matches(new RegisterSanitaryEventCommand(UUID.randomUUID(), SanitaryEventType.TREATMENT, occurredAt, "Ivermectina", REQUEST_ID)));
+        // Mismo id reutilizado para la otra operacion
+        assertFalse(event.matches(new ScheduleSanitaryEventCommand(animalId, SanitaryEventType.TREATMENT, TODAY, "Ivermectina", REQUEST_ID)));
+    }
+
+    @Test
+    void aScheduledEventMatchesOnlyTheSameScheduleRequestWhateverItsStatus() {
+        var date = TODAY.plusDays(3);
+        var event = history.scheduleEvent(SanitaryEventType.VACCINATION, date, "Aftosa", TODAY, REQUEST_ID);
+        ReflectionTestUtils.setField(event, "id", UUID.randomUUID());
+        var animalId = history.getAnimalId();
+        var same = new ScheduleSanitaryEventCommand(animalId, SanitaryEventType.VACCINATION, date, "Aftosa", REQUEST_ID);
+
+        assertTrue(event.matches(same));
+        assertFalse(event.matches(new ScheduleSanitaryEventCommand(animalId, SanitaryEventType.VACCINATION, date.plusDays(1), "Aftosa", REQUEST_ID)));
+        assertFalse(event.matches(new ScheduleSanitaryEventCommand(animalId, SanitaryEventType.CHECKUP, date, "Aftosa", REQUEST_ID)));
+        assertFalse(event.matches(new ScheduleSanitaryEventCommand(UUID.randomUUID(), SanitaryEventType.VACCINATION, date, "Aftosa", REQUEST_ID)));
+        assertFalse(event.matches(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.VACCINATION, TODAY.atTime(8, 0), "Aftosa", REQUEST_ID)));
+
+        history.cancelScheduledEvent(event.getId()); // un reintento tardio sigue siendo el mismo request
+        assertTrue(event.matches(same));
     }
 }

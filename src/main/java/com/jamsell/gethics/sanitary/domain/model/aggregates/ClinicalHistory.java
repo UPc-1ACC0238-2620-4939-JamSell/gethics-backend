@@ -45,14 +45,25 @@ public class ClinicalHistory {
     }
 
     public SanitaryEvent registerEvent(SanitaryEventType type, LocalDateTime occurredAt, String description) {
-        var event = new SanitaryEvent(this, type, occurredAt, description);
+        return registerEvent(type, occurredAt, description, null);
+    }
+
+    /** US-35: {@code clientRequestId} opcional (null = cliente sin idempotencia). */
+    public SanitaryEvent registerEvent(SanitaryEventType type, LocalDateTime occurredAt, String description, UUID clientRequestId) {
+        var event = new SanitaryEvent(this, type, occurredAt, description, clientRequestId);
         events.add(event);
         updatedAt = Instant.now();
         return event;
     }
 
     public SanitaryEvent scheduleEvent(SanitaryEventType type, LocalDate scheduledDate, String description, LocalDate today) {
-        var event = SanitaryEvent.schedule(this, type, scheduledDate, description, today);
+        return scheduleEvent(type, scheduledDate, description, today, null);
+    }
+
+    /** US-35: {@code clientRequestId} opcional (null = cliente sin idempotencia). */
+    public SanitaryEvent scheduleEvent(SanitaryEventType type, LocalDate scheduledDate, String description, LocalDate today,
+                                       UUID clientRequestId) {
+        var event = SanitaryEvent.schedule(this, type, scheduledDate, description, today, clientRequestId);
         events.add(event);
         updatedAt = Instant.now();
         return event;

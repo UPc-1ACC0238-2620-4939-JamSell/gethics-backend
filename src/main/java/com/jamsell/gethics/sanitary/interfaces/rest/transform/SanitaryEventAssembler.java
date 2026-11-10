@@ -17,11 +17,13 @@ public final class SanitaryEventAssembler {
     }
 
     public static RegisterSanitaryEventCommand toCommand(UUID animalId, RegisterSanitaryEventResource resource) {
-        return new RegisterSanitaryEventCommand(animalId, resource.type(), resource.occurredAt(), resource.description());
+        return new RegisterSanitaryEventCommand(animalId, resource.type(), resource.occurredAt(), resource.description(),
+                resource.clientRequestId());
     }
 
     public static ScheduleSanitaryEventCommand toCommand(UUID animalId, ScheduleSanitaryEventResource resource) {
-        return new ScheduleSanitaryEventCommand(animalId, resource.type(), resource.scheduledDate(), resource.description());
+        return new ScheduleSanitaryEventCommand(animalId, resource.type(), resource.scheduledDate(), resource.description(),
+                resource.clientRequestId());
     }
 
     public static CompleteScheduledEventCommand toCommand(UUID animalId, UUID eventId, CompleteSanitaryEventResource resource) {

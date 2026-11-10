@@ -38,8 +38,10 @@ class ClinicalHistoryPersistenceTest {
         var animalId = UUID.randomUUID();
         var occurredAt = LocalDate.now().minusDays(1).atTime(8, 15, 30);
 
-        var first = service.handle(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.VACCINATION, occurredAt, "Aftosa"));
-        var second = service.handle(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.TREATMENT, occurredAt.plusHours(2), null));
+        var first = service.handle(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.VACCINATION, occurredAt, "Aftosa"))
+                .event();
+        var second = service.handle(new RegisterSanitaryEventCommand(animalId, SanitaryEventType.TREATMENT, occurredAt.plusHours(2), null))
+                .event();
 
         assertNotNull(first.getId());
         assertNotNull(second.getId());

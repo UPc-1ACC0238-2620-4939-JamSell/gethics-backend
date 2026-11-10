@@ -4,11 +4,13 @@ import com.jamsell.gethics.sanitary.domain.exceptions.FutureEventDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
+import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventRequestConflictException;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventCreation;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
 import com.jamsell.gethics.sanitary.domain.services.ClinicalHistoryCommandService;
 import org.junit.jupiter.api.Test;
@@ -54,7 +56,7 @@ class SanitaryEventControllerTest {
     void registersEventAndReturns201() throws Exception {
         var occurredAt = LocalDate.now().minusDays(2).atTime(10, 30, 15);
         var event = new ClinicalHistory(animalId).registerEvent(SanitaryEventType.VACCINATION, occurredAt, "Aftosa");
-        when(commandService.handle(any(RegisterSanitaryEventCommand.class))).thenReturn(event);
+        when(commandService.handle(any(RegisterSanitaryEventCommand.class))).thenReturn(new SanitaryEventCreation(event, true));
 
         postJson("{\"type\":\"VACCINATION\",\"occurredAt\":\"" + occurredAt + "\",\"description\":\"Aftosa\"}")
                 .andExpect(status().isCreated())
@@ -131,7 +133,7 @@ class SanitaryEventControllerTest {
     void schedulesAnyEventTypeAndReturns201(SanitaryEventType type) throws Exception {
         var date = LocalDate.now().plusDays(3);
         var event = new ClinicalHistory(animalId).scheduleEvent(type, date, "Plan", LocalDate.now());
-        when(commandService.handle(any(ScheduleSanitaryEventCommand.class))).thenReturn(event);
+        when(commandService.handle(any(ScheduleSanitaryEventCommand.class))).thenReturn(new SanitaryEventCreation(event, true));
 
         postJson("/scheduled", "{\"type\":\"" + type + "\",\"scheduledDate\":\"" + date + "\",\"description\":\"Plan\"}")
                 .andExpect(status().isCreated())
@@ -274,6 +276,91 @@ class SanitaryEventControllerTest {
     @Test
     void cancellingWithANonUuidEventIdReturns400WithoutReachingTheService() throws Exception {
         postWithoutBody("/123/cancel").andExpect(status().isBadRequest());
+        verifyNoInteractions(commandService);
+    }
+
+    // ---- US-35: clientRequestId opcional e idempotente en registrar y programar ----
+
+    private final UUID requestId = UUID.randomUUID();
+
+    private String registerBody(java.time.LocalDateTime occurredAt) {
+        return "{\"type\":\"TREATMENT\",\"occurredAt\":\"" + occurredAt + "\",\"description\":\"Ivermectina\","
+                + "\"clientRequestId\":\"" + requestId + "\"}";
+    }
+
+    private String scheduleBody(LocalDate date) {
+        return "{\"type\":\"VACCINATION\",\"scheduledDate\":\"" + date + "\",\"description\":\"Aftosa\","
+                + "\"clientRequestId\":\"" + requestId + "\"}";
+    }
+
+    @Test
+    void registeringWithANewClientRequestIdReturns201AndPassesTheId() throws Exception {
+        var occurredAt = LocalDate.now().minusDays(1).atTime(8, 0);
+        var event = new ClinicalHistory(animalId).registerEvent(SanitaryEventType.TREATMENT, occurredAt, "Ivermectina", requestId);
+        when(commandService.handle(any(RegisterSanitaryEventCommand.class))).thenReturn(new SanitaryEventCreation(event, true));
+
+        postJson(registerBody(occurredAt)).andExpect(status().isCreated()).andExpect(jsonPath("$.type").value("TREATMENT"));
+
+        verify(commandService).handle(new RegisterSanitaryEventCommand(
+                animalId, SanitaryEventType.TREATMENT, occurredAt, "Ivermectina", requestId));
+    }
+
+    @Test
+    void anIdenticalRegisterRetryReturns200WithTheExistingEvent() throws Exception {
+        var occurredAt = LocalDate.now().minusDays(1).atTime(8, 0);
+        var event = new ClinicalHistory(animalId).registerEvent(SanitaryEventType.TREATMENT, occurredAt, "Ivermectina", requestId);
+        var eventId = UUID.randomUUID();
+        ReflectionTestUtils.setField(event, "id", eventId);
+        when(commandService.handle(any(RegisterSanitaryEventCommand.class))).thenReturn(new SanitaryEventCreation(event, false));
+
+        postJson(registerBody(occurredAt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(eventId.toString()))
+                .andExpect(jsonPath("$.status").value("COMPLETED"));
+    }
+
+    @Test
+    void reusingAClientRequestIdWithOtherDataReturns409() throws Exception {
+        when(commandService.handle(any(RegisterSanitaryEventCommand.class)))
+                .thenThrow(new SanitaryEventRequestConflictException(requestId));
+
+        postJson(registerBody(LocalDate.now().minusDays(1).atTime(8, 0)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("El clientRequestId " + requestId + " ya se uso con datos distintos."));
+    }
+
+    @Test
+    void schedulingWithANewClientRequestIdReturns201AndPassesTheId() throws Exception {
+        var date = LocalDate.now().plusDays(3);
+        var event = new ClinicalHistory(animalId).scheduleEvent(SanitaryEventType.VACCINATION, date, "Aftosa", LocalDate.now(), requestId);
+        when(commandService.handle(any(ScheduleSanitaryEventCommand.class))).thenReturn(new SanitaryEventCreation(event, true));
+
+        postJson("/scheduled", scheduleBody(date)).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("SCHEDULED"));
+
+        verify(commandService).handle(new ScheduleSanitaryEventCommand(animalId, SanitaryEventType.VACCINATION, date, "Aftosa", requestId));
+    }
+
+    @Test
+    void anIdenticalScheduleRetryReturns200() throws Exception {
+        var date = LocalDate.now().plusDays(3);
+        var event = new ClinicalHistory(animalId).scheduleEvent(SanitaryEventType.VACCINATION, date, "Aftosa", LocalDate.now(), requestId);
+        when(commandService.handle(any(ScheduleSanitaryEventCommand.class))).thenReturn(new SanitaryEventCreation(event, false));
+
+        postJson("/scheduled", scheduleBody(date)).andExpect(status().isOk()).andExpect(jsonPath("$.scheduledDate").value(date.toString()));
+    }
+
+    @Test
+    void reusingAClientRequestIdToScheduleWithOtherDataReturns409() throws Exception {
+        when(commandService.handle(any(ScheduleSanitaryEventCommand.class)))
+                .thenThrow(new SanitaryEventRequestConflictException(requestId));
+
+        postJson("/scheduled", scheduleBody(LocalDate.now().plusDays(3))).andExpect(status().isConflict());
+    }
+
+    @Test
+    void aMalformedClientRequestIdReturns400WithoutReachingTheService() throws Exception {
+        postJson("{\"type\":\"CHECKUP\",\"occurredAt\":\"2025-01-01T10:00:00\",\"clientRequestId\":\"no-es-uuid\"}")
+                .andExpect(status().isBadRequest());
         verifyNoInteractions(commandService);
     }
 }

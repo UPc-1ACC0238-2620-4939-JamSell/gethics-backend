@@ -4,6 +4,8 @@ import com.jamsell.gethics.sanitary.domain.exceptions.FutureEventDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
+import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
 import jakarta.persistence.*;
@@ -51,7 +53,13 @@ public class SanitaryEvent {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    public SanitaryEvent(ClinicalHistory clinicalHistory, SanitaryEventType type, LocalDateTime occurredAt, String description) {
+    // US-35: id de idempotencia generado por el cliente (sincronizacion offline). null en eventos de clientes que no lo
+    // envian: PostgreSQL admite varios NULL en una columna UNIQUE.
+    @Column(name = "client_request_id", unique = true, updatable = false)
+    private UUID clientRequestId;
+
+    public SanitaryEvent(ClinicalHistory clinicalHistory, SanitaryEventType type, LocalDateTime occurredAt, String description,
+                         UUID clientRequestId) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(occurredAt, "occurredAt");
         if (occurredAt.toLocalDate().isAfter(LocalDate.now())) {
@@ -63,11 +71,12 @@ public class SanitaryEvent {
         this.description = description;
         this.status = SanitaryEventStatus.COMPLETED;
         this.createdAt = Instant.now();
+        this.clientRequestId = clientRequestId;
     }
 
     /** {@code today} lo aporta Application desde el Clock: un evento no puede programarse en una fecha ya vencida. */
     public static SanitaryEvent schedule(ClinicalHistory clinicalHistory, SanitaryEventType type, LocalDate scheduledDate,
-                                         String description, LocalDate today) {
+                                         String description, LocalDate today, UUID clientRequestId) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(scheduledDate, "scheduledDate");
         if (scheduledDate.isBefore(Objects.requireNonNull(today, "today"))) {
@@ -80,7 +89,34 @@ public class SanitaryEvent {
         event.description = description;
         event.status = SanitaryEventStatus.SCHEDULED;
         event.createdAt = Instant.now();
+        event.clientRequestId = clientRequestId;
         return event;
+    }
+
+    /**
+     * US-35: este evento lo creo un REGISTER (US-11, sin fecha programada) con los mismos datos de negocio. Solo compara
+     * lo que envia el cliente, nunca campos generados por el servidor (id, status, createdAt).
+     */
+    public boolean matches(RegisterSanitaryEventCommand command) {
+        return scheduledDate == null
+                && sameRequest(command.animalId(), command.type(), command.description())
+                && Objects.equals(occurredAt, command.occurredAt());
+    }
+
+    /**
+     * US-35: este evento lo creo un SCHEDULE (US-13) con los mismos datos de negocio. El estado no cuenta: un reintento
+     * de un evento ya completado o cancelado sigue siendo el mismo request.
+     */
+    public boolean matches(ScheduleSanitaryEventCommand command) {
+        return scheduledDate != null
+                && sameRequest(command.animalId(), command.type(), command.description())
+                && scheduledDate.equals(command.scheduledDate());
+    }
+
+    private boolean sameRequest(UUID animalId, SanitaryEventType type, String description) {
+        return clinicalHistory.getAnimalId().equals(animalId)
+                && this.type == type
+                && Objects.equals(this.description, description);
     }
 
     /**
