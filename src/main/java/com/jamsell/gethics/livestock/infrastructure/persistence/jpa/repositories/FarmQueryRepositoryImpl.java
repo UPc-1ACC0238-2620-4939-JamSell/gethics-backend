@@ -5,6 +5,7 @@ import com.jamsell.gethics.livestock.domain.repositories.FarmQueryRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -19,5 +20,10 @@ public class FarmQueryRepositoryImpl implements FarmQueryRepository {
     @Override
     public List<Farm> findByOwnerId(UUID ownerId) {
         return jpaRepository.findByOwnerIdOrderByNormalizedNameAsc(ownerId);
+    }
+
+    @Override
+    public Optional<Farm> findById(UUID farmId) {
+        return jpaRepository.findById(farmId);
     }
 }

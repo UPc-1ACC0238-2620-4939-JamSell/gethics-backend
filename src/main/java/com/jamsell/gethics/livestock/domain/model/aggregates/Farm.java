@@ -71,6 +71,23 @@ public class Farm {
         return farm;
     }
 
+    /**
+     * US-32: edita nombre, ubicacion y tamano. El dueno y el estado no cambian. El servicio valida que el nuevo nombre
+     * no lo tenga ya otra granja del mismo dueno.
+     */
+    public void update(String newName, String newLocation, BigDecimal newSizeHectares) {
+        var cleanName = cleanName(newName);
+        var cleanLocation = requireText(newLocation, "La ubicacion es obligatoria.", LOCATION_MAX_LENGTH,
+                "La ubicacion no puede superar 200 caracteres.");
+        if (newSizeHectares != null && newSizeHectares.signum() <= 0) {
+            throw new InvalidFarmDataException("El tamano de la granja debe ser mayor a 0.");
+        }
+        this.name = cleanName;
+        this.normalizedName = normalizeName(newName);
+        this.location = cleanLocation;
+        this.sizeHectares = newSizeHectares;
+    }
+
     /** Forma canonica del nombre (trim + minusculas): con ella el servicio detecta duplicados del mismo dueno. */
     public static String normalizeName(String name) {
         return cleanName(name).toLowerCase(Locale.ROOT);

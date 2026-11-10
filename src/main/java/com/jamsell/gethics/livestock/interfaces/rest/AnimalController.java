@@ -1,14 +1,18 @@
 package com.jamsell.gethics.livestock.interfaces.rest;
 
 import com.jamsell.gethics.livestock.domain.model.commands.DeactivateAnimalCommand;
+import com.jamsell.gethics.livestock.domain.model.commands.SellAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalByIdQuery;
+import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalByQrCodeQuery;
 import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalsQuery;
 import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalStatus;
 import com.jamsell.gethics.livestock.domain.services.AnimalCommandService;
 import com.jamsell.gethics.livestock.domain.services.AnimalQueryService;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalListResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalResource;
+import com.jamsell.gethics.livestock.interfaces.rest.resources.AnimalSaleResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.RegisterAnimalResource;
+import com.jamsell.gethics.livestock.interfaces.rest.resources.SellAnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.resources.UpdateAnimalResource;
 import com.jamsell.gethics.livestock.interfaces.rest.transform.AnimalAssembler;
 import io.swagger.v3.oas.annotations.Operation;
@@ -75,6 +79,19 @@ public class AnimalController {
         return AnimalAssembler.toListResource(query, queryService.handle(query));
     }
 
+    /** US-29: resuelve el codigo leido del QR de un animal. */
+    @Operation(summary = "Buscar un animal por su codigo QR",
+            description = "US-29: devuelve el animal cuyo QR tiene ese codigo (sin distinguir mayusculas ni espacios), sin importar su estado.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Animal encontrado"),
+        @ApiResponse(responseCode = "404", description = "No se encontro el registro: el codigo no corresponde a ningun animal")
+    })
+    @GetMapping("/qr/{code}")
+    public ResponseEntity<AnimalResource> getAnimalByQrCode(@PathVariable String code) {
+        var animal = queryService.handle(new GetAnimalByQrCodeQuery(code));
+        return ResponseEntity.ok(AnimalAssembler.toResource(animal));
+    }
+
     /** US-07: precarga los datos del animal antes de editarlo. */
     @Operation(summary = "Obtener un animal",
             description = "Devuelve el animal sin importar su estado, para precargar el detalle o la edicion.")
@@ -90,11 +107,12 @@ public class AnimalController {
 
     /** US-07, Escenario 1: guarda los cambios del animal. El "Cancelar" del Escenario 2 no llega a esta API. */
     @Operation(summary = "Editar un animal",
-            description = "Actualiza nombre, raza, sexo, fecha de nacimiento, peso, foto y, opcionalmente, la granja. No cambia el arete ni el QR.")
+            description = "Actualiza nombre, raza, sexo, fecha de nacimiento, peso, foto y, opcionalmente, la granja. No cambia el arete ni el QR. Solo se puede editar un animal ACTIVE.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Animal actualizado"),
         @ApiResponse(responseCode = "400", description = "Datos invalidos"),
-        @ApiResponse(responseCode = "404", description = "El animal o la granja no existen")
+        @ApiResponse(responseCode = "404", description = "El animal o la granja no existen"),
+        @ApiResponse(responseCode = "409", description = "El animal ya no esta activo (baja, vendido o fallecido)")
     })
     @PutMapping("/{id}")
     public ResponseEntity<AnimalResource> updateAnimal(@PathVariable UUID id,
@@ -108,15 +126,34 @@ public class AnimalController {
      * historial sanitario y de granjas se conservan.
      */
     @Operation(summary = "Dar de baja un animal (baja logica)",
-            description = "Cambia el estado a INACTIVE sin borrar el registro ni su historial sanitario. Responde 409 si el animal ya no esta ACTIVE.")
+            description = "Cambia el estado a INACTIVE sin borrar el registro ni su historial sanitario, y cancela sus eventos sanitarios programados. Responde 409 si el animal ya no esta ACTIVE.")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Animal dado de baja"),
         @ApiResponse(responseCode = "404", description = "El animal no existe"),
-        @ApiResponse(responseCode = "409", description = "El animal ya esta dado de baja")
+        @ApiResponse(responseCode = "409", description = "El animal ya no esta activo (baja, vendido o fallecido)")
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deactivateAnimal(@PathVariable UUID id) {
         commandService.handle(new DeactivateAnimalCommand(id));
         return ResponseEntity.noContent().build();
+    }
+
+    /** US-30: venta. Estado SOLD + ingreso en Finance en una sola transaccion. */
+    @Operation(summary = "Registrar la venta de un animal",
+            description = "US-30: marca el animal como SOLD con su precio y fecha, conserva su historial, cancela sus eventos sanitarios programados y registra un ingreso (categoria 'Venta de ganado') en Finance. El dueno sale de la granja del animal; si no tiene granja, hay que enviar ownerId.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Venta registrada; incluye el id del ingreso creado"),
+        @ApiResponse(responseCode = "400", description = "Datos invalidos (precio <= 0, fecha futura/ausente o dueno imposible de determinar)"),
+        @ApiResponse(responseCode = "404", description = "El animal no existe"),
+        @ApiResponse(responseCode = "409", description = "El animal ya no esta activo (baja, vendido o fallecido)")
+    })
+    @PostMapping("/{id}/sale")
+    public ResponseEntity<AnimalSaleResource> sellAnimal(@PathVariable UUID id,
+                                                          @Valid @RequestBody SellAnimalResource resource) {
+        var sale = commandService.handle(new SellAnimalCommand(id, resource.ownerId(), resource.price(),
+                resource.saleDate()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(new AnimalSaleResource(sale.animal().getId(),
+                sale.animal().getStatus(), sale.animal().getSalePrice(), sale.animal().getSoldOn(),
+                sale.incomeTransactionId()));
     }
 }

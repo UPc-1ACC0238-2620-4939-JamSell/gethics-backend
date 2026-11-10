@@ -13,6 +13,9 @@ public interface AnimalRepository {
 
     Optional<Animal> findById(UUID id);
 
+    /** US-29: {@code qrCode} ya normalizado (mayusculas, sin espacios). */
+    Optional<Animal> findByQrCode(String qrCode);
+
     /** Persiste el animal y devuelve la instancia persistida (con id asignado). */
     Animal save(Animal animal);
 }

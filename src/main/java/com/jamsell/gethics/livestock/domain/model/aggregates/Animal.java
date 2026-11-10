@@ -3,6 +3,7 @@ package com.jamsell.gethics.livestock.domain.model.aggregates;
 import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotActiveException;
 import com.jamsell.gethics.livestock.domain.exceptions.FutureBirthDateException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalDataException;
+import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalSaleException;
 import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalWeightException;
 import com.jamsell.gethics.livestock.domain.model.commands.RegisterAnimalCommand;
 import com.jamsell.gethics.livestock.domain.model.commands.UpdateAnimalCommand;
@@ -70,6 +71,12 @@ public class Animal {
     @Column(length = PHOTO_URL_MAX_LENGTH)
     private String photoUrl;
 
+    // US-30: precio y fecha de venta. Solo tienen valor cuando el estado es SOLD.
+    @Column(precision = 12, scale = 2)
+    private BigDecimal salePrice;
+
+    private LocalDate soldOn;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AnimalStatus status;
@@ -110,6 +117,7 @@ public class Animal {
      */
     public boolean assignToFarm(UUID newFarmId) {
         Objects.requireNonNull(newFarmId, "farmId");
+        requireActive();
         if (newFarmId.equals(this.farmId)) {
             return false;
         }
@@ -125,6 +133,7 @@ public class Animal {
      * que en {@link #register}.
      */
     public void updateDetails(UpdateAnimalCommand command, LocalDate today) {
+        requireActive();
         var birthDate = Objects.requireNonNull(command.birthDate(), "birthDate");
         if (birthDate.isAfter(Objects.requireNonNull(today, "today"))) {
             throw new FutureBirthDateException();
@@ -148,10 +157,36 @@ public class Animal {
      * (sanitario, de granjas) se conservan, solo cambia el estado a INACTIVE.
      */
     public void deactivate() {
-        if (this.status != AnimalStatus.ACTIVE) {
-            throw new AnimalNotActiveException();
-        }
+        requireActive();
         this.status = AnimalStatus.INACTIVE;
+    }
+
+    /**
+     * US-30: marca el animal como vendido. Solo un animal ACTIVE se puede vender; el precio debe ser mayor a 0 y la
+     * fecha no puede ser futura. El registro y el historial se conservan, solo cambia el estado.
+     * {@code today} lo aporta Application desde el Clock.
+     */
+    public void sell(BigDecimal price, LocalDate saleDate, LocalDate today) {
+        requireActive();
+        if (price == null || price.signum() <= 0) {
+            throw new InvalidAnimalSaleException("El precio de venta debe ser mayor a 0.");
+        }
+        if (saleDate == null) {
+            throw new InvalidAnimalSaleException("La fecha de venta es obligatoria.");
+        }
+        if (saleDate.isAfter(Objects.requireNonNull(today, "today"))) {
+            throw new InvalidAnimalSaleException("La fecha de venta no puede ser futura.");
+        }
+        this.salePrice = price;
+        this.soldOn = saleDate;
+        this.status = AnimalStatus.SOLD;
+    }
+
+    /** Solo un animal ACTIVE admite cambios (editar, mover de granja, vender o dar de baja). */
+    public void requireActive() {
+        if (this.status != AnimalStatus.ACTIVE) {
+            throw new AnimalNotActiveException(this.status);
+        }
     }
 
     /** Forma canonica del arete (trim + mayusculas): con ella el servicio detecta duplicados antes de guardar. */

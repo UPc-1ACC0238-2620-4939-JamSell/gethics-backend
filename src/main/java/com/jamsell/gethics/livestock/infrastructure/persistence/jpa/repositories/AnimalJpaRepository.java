@@ -13,6 +13,8 @@ interface AnimalJpaRepository extends JpaRepository<Animal, UUID> {
 
     boolean existsByTag(String tag);
 
+    java.util.Optional<Animal> findByQrCode(String qrCode);
+
     List<Animal> findByFarmIdAndStatusOrderByTagAsc(UUID farmId, AnimalStatus status);
 
     // pattern llega siempre (con "%" si no hay busqueda) y ya viene en minusculas y con "!" como escape: asi no se

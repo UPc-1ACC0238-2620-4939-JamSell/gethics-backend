@@ -14,7 +14,9 @@ import com.jamsell.gethics.livestock.domain.model.valueobjects.AnimalStatus;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalFarmAssignmentRepository;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalRepository;
 import com.jamsell.gethics.livestock.domain.repositories.FarmRepository;
+import com.jamsell.gethics.livestock.application.internal.outboundservices.SaleIncomeRegistrar;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -40,7 +42,10 @@ class AnimalCommandServiceImplTest {
     private final AnimalRepository repository = mock(AnimalRepository.class);
     private final FarmRepository farms = mock(FarmRepository.class);
     private final AnimalFarmAssignmentRepository assignments = mock(AnimalFarmAssignmentRepository.class);
-    private final AnimalCommandServiceImpl service = new AnimalCommandServiceImpl(repository, farms, assignments, CLOCK);
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    private final SaleIncomeRegistrar saleIncome = mock(SaleIncomeRegistrar.class);
+    private final AnimalCommandServiceImpl service =
+            new AnimalCommandServiceImpl(repository, farms, assignments, CLOCK, events, saleIncome);
 
     private RegisterAnimalCommand command(String tag, LocalDate birthDate) {
         return new RegisterAnimalCommand(tag, null, "Holstein", null, birthDate, new BigDecimal("420"), null, null);

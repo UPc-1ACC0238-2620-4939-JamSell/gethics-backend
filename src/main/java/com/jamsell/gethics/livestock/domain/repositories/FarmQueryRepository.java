@@ -10,4 +10,7 @@ public interface FarmQueryRepository {
 
     /** Granjas del dueno por nombre ascendente. Lista vacia si no tiene ninguna. */
     List<Farm> findByOwnerId(UUID ownerId);
+
+    /** La granja con ese id, si existe. */
+    java.util.Optional<Farm> findById(java.util.UUID farmId);
 }

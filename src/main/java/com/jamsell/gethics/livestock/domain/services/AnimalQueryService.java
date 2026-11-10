@@ -2,6 +2,7 @@ package com.jamsell.gethics.livestock.domain.services;
 
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
 import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalByIdQuery;
+import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalByQrCodeQuery;
 import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalsQuery;
 
 import java.util.List;
@@ -13,4 +14,7 @@ public interface AnimalQueryService {
 
     /** US-07: el animal con ese id, o {@code AnimalNotFoundException}. */
     Animal handle(GetAnimalByIdQuery query);
+
+    /** US-29: el animal de ese codigo QR, o {@code AnimalQrNotFoundException}. */
+    Animal handle(GetAnimalByQrCodeQuery query);
 }

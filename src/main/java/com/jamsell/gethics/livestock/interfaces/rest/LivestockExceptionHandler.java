@@ -1,6 +1,8 @@
 package com.jamsell.gethics.livestock.interfaces.rest;
 
 import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotActiveException;
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalQrNotFoundException;
+import com.jamsell.gethics.livestock.domain.exceptions.InvalidAnimalSaleException;
 import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateAnimalTagException;
 import com.jamsell.gethics.livestock.domain.exceptions.DuplicateFarmNameException;
@@ -61,5 +63,15 @@ public class LivestockExceptionHandler {
     @ExceptionHandler(DuplicateFarmNameException.class)
     public ResponseEntity<ErrorResource> handleDuplicateFarmName(DuplicateFarmNameException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResource(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AnimalQrNotFoundException.class)
+    public ResponseEntity<ErrorResource> handleQrNotFound(AnimalQrNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResource(ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidAnimalSaleException.class)
+    public ResponseEntity<ErrorResource> handleInvalidSale(InvalidAnimalSaleException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResource(ex.getMessage()));
     }
 }
