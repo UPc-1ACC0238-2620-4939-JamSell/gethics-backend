@@ -3,6 +3,7 @@ package com.jamsell.gethics.sanitary.application.internal.commandservices;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventRequestConflictException;
 import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
+import com.jamsell.gethics.sanitary.domain.model.commands.CancelAllScheduledEventsCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
@@ -115,5 +116,18 @@ public class ClinicalHistoryCommandServiceImpl implements ClinicalHistoryCommand
         var event = history.cancelScheduledEvent(command.eventId());
         repository.save(history);
         return event;
+    }
+
+    /** Un animal sin historial no tiene nada que cancelar. Corre dentro de la transaccion de quien lo dispara. */
+    @Override
+    @Transactional
+    public int handle(CancelAllScheduledEventsCommand command) {
+        return repository.findByAnimalId(command.animalId()).map(history -> {
+            var cancelled = history.cancelAllScheduledEvents();
+            if (cancelled > 0) {
+                repository.save(history);
+            }
+            return cancelled;
+        }).orElse(0);
     }
 }

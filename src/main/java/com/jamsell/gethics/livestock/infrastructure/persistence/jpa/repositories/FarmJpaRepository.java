@@ -10,5 +10,7 @@ interface FarmJpaRepository extends JpaRepository<Farm, UUID> {
 
     boolean existsByOwnerIdAndNormalizedName(UUID ownerId, String normalizedName);
 
+    boolean existsByOwnerIdAndNormalizedNameAndIdNot(UUID ownerId, String normalizedName, UUID id);
+
     List<Farm> findByOwnerIdOrderByNormalizedNameAsc(UUID ownerId);
 }

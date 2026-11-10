@@ -14,6 +14,11 @@ import com.jamsell.gethics.iam.interfaces.rest.transform.UserResourceFromEntityA
 import com.jamsell.gethics.shared.application.result.ApplicationError;
 import com.jamsell.gethics.shared.interfaces.rest.transform.ErrorResponseAssembler;
 import com.jamsell.gethics.shared.interfaces.rest.transform.ResponseEntityAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -30,6 +35,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
+@Tag(name = "Users", description = "Perfil del usuario autenticado")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/users/me")
 public class UserController {
@@ -42,6 +49,12 @@ public class UserController {
         this.userQueryService = userQueryService;
     }
 
+    @Operation(summary = "Consultar mi perfil", description = "US-04: datos del usuario autenticado.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Perfil del usuario"),
+        @ApiResponse(responseCode = "401", description = "Token ausente o invalido"),
+        @ApiResponse(responseCode = "404", description = "El usuario no existe")
+    })
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> getProfile(@AuthenticationPrincipal UserDetailsImpl principal) {
         return userQueryService.handle(new GetUserByIdQuery(principal.getId()))
@@ -50,6 +63,12 @@ public class UserController {
                         ApplicationError.notFound("User", "El usuario no existe")));
     }
 
+    @Operation(summary = "Editar mi perfil", description = "US-04: actualiza nombre y telefono del usuario autenticado.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Perfil actualizado"),
+        @ApiResponse(responseCode = "400", description = "Datos invalidos"),
+        @ApiResponse(responseCode = "401", description = "Token ausente o invalido")
+    })
     @PutMapping(produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> updateProfile(
             @AuthenticationPrincipal UserDetailsImpl principal,
@@ -66,6 +85,12 @@ public class UserController {
         );
     }
 
+    @Operation(summary = "Actualizar mi foto de perfil", description = "US-04: sube la imagen (multipart, parte file; maximo 2 MB).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Foto actualizada"),
+        @ApiResponse(responseCode = "400", description = "Imagen invalida o mayor al maximo permitido"),
+        @ApiResponse(responseCode = "401", description = "Token ausente o invalido")
+    })
     @PutMapping(value = "/photo", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updatePhoto(
             @AuthenticationPrincipal UserDetailsImpl principal,
@@ -82,6 +107,12 @@ public class UserController {
         );
     }
 
+    @Operation(summary = "Obtener mi foto de perfil", description = "Devuelve los bytes de la imagen con su content-type.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Imagen de perfil"),
+        @ApiResponse(responseCode = "401", description = "Token ausente o invalido"),
+        @ApiResponse(responseCode = "404", description = "El usuario no tiene foto de perfil")
+    })
     @GetMapping("/photo")
     public ResponseEntity<?> getPhoto(@AuthenticationPrincipal UserDetailsImpl principal) {
         return userQueryService.handle(new GetProfilePhotoByUserIdQuery(principal.getId()))

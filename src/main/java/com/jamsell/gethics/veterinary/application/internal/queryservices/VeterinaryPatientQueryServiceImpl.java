@@ -4,6 +4,7 @@ import com.jamsell.gethics.veterinary.application.internal.outboundservices.Clie
 import com.jamsell.gethics.veterinary.application.internal.outboundservices.ClinicalSummaryLookup;
 import com.jamsell.gethics.veterinary.domain.model.exceptions.ClientNotAssignedException;
 import com.jamsell.gethics.veterinary.domain.model.queries.GetClientPatientsQuery;
+import com.jamsell.gethics.veterinary.domain.model.valueobjects.PatientInfo;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.PatientView;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.VeterinaryAssignmentStatus;
 import com.jamsell.gethics.veterinary.domain.services.VeterinaryPatientQueryService;
@@ -35,9 +36,12 @@ public class VeterinaryPatientQueryServiceImpl implements VeterinaryPatientQuery
         if (!assigned) {
             throw new ClientNotAssignedException(query.veterinarianId(), query.clientId());
         }
-        return clientPatientsLookup.findPatientsByClientId(query.clientId()).stream()
-                .map(patient -> new PatientView(patient,
-                        clinicalSummaryLookup.findSummaryByPatientId(patient.patientId()).orElse(null)))
+        var patients = clientPatientsLookup.findPatientsByClientId(query.clientId());
+        // Los resumenes de todos los pacientes se piden juntos (una consulta), no uno por uno.
+        var summaries = clinicalSummaryLookup.findSummariesByPatientIds(
+                patients.stream().map(PatientInfo::patientId).toList());
+        return patients.stream()
+                .map(patient -> new PatientView(patient, summaries.get(patient.patientId())))
                 .toList();
     }
 }

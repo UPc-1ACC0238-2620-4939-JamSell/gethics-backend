@@ -6,6 +6,9 @@ import com.jamsell.gethics.notifications.domain.services.NotificationPreferenceC
 import com.jamsell.gethics.notifications.domain.services.NotificationPreferenceQueryService;
 import com.jamsell.gethics.notifications.interfaces.rest.resources.NotificationPreferenceResource;
 import com.jamsell.gethics.notifications.interfaces.rest.resources.SetNotificationPreferenceResource;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -31,12 +34,24 @@ public class NotificationPreferenceController {
         this.queryService = queryService;
     }
 
+    @Operation(summary = "Consultar la preferencia de notificaciones push",
+            description = "Indica si el usuario tiene habilitadas las notificaciones push.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Preferencia del usuario"),
+        @ApiResponse(responseCode = "400", description = "userId con formato invalido")
+    })
     @GetMapping
     public ResponseEntity<NotificationPreferenceResource> get(@PathVariable UUID userId) {
         var pushEnabled = queryService.handle(new GetNotificationPreferenceQuery(userId));
         return ResponseEntity.ok(new NotificationPreferenceResource(userId, pushEnabled));
     }
 
+    @Operation(summary = "Actualizar la preferencia de notificaciones push",
+            description = "Activa o desactiva las notificaciones push del usuario.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Preferencia actualizada"),
+        @ApiResponse(responseCode = "400", description = "Cuerpo invalido (pushEnabled ausente)")
+    })
     @PutMapping
     public ResponseEntity<NotificationPreferenceResource> update(@PathVariable UUID userId,
                                                                   @Valid @RequestBody SetNotificationPreferenceResource resource) {

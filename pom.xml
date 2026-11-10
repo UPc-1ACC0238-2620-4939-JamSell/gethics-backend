@@ -28,6 +28,15 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!-- Los tests usan por defecto el Postgres local de docker-compose (igual que el CI) y NUNCA la base compartida del .env.
+		     Levantarla con: docker compose up -d. Para H2: -Dtest.db.url="jdbc:h2:mem:t;MODE=PostgreSQL;NON_KEYWORDS=VALUE;DB_CLOSE_DELAY=-1" -Dtest.db.user=sa -Dtest.db.password=sa -Dtest.db.driver=org.h2.Driver -Dtest.db.ddl=create-drop -->
+		<test.db.url>jdbc:postgresql://localhost:5432/gethics</test.db.url>
+		<test.db.user>gethics</test.db.user>
+		<test.db.password>gethics</test.db.password>
+		<test.db.driver>org.postgresql.Driver</test.db.driver>
+		<test.db.ddl>update</test.db.ddl>
+		<jacoco.version>0.8.13</jacoco.version>
+		<pitest.version>1.20.1</pitest.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -74,12 +83,12 @@
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-core</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-mysql</artifactId>
+			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
 		<dependency>
@@ -204,6 +213,74 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<systemPropertyVariables>
+						<spring.datasource.url>${test.db.url}</spring.datasource.url>
+						<spring.datasource.username>${test.db.user}</spring.datasource.username>
+						<spring.datasource.password>${test.db.password}</spring.datasource.password>
+						<spring.datasource.driver-class-name>${test.db.driver}</spring.datasource.driver-class-name>
+						<spring.jpa.hibernate.ddl-auto>${test.db.ddl}</spring.jpa.hibernate.ddl-auto>
+						<spring.jpa.show-sql>false</spring.jpa.show-sql>
+					</systemPropertyVariables>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco.version}</version>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals><goal>prepare-agent</goal></goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals><goal>report</goal></goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<!-- Mutation testing (PIT): ./mvnw test-compile org.pitest:pitest-maven:mutationCoverage -->
+				<groupId>org.pitest</groupId>
+				<artifactId>pitest-maven</artifactId>
+				<version>${pitest.version}</version>
+				<dependencies>
+					<dependency>
+						<groupId>org.pitest</groupId>
+						<artifactId>pitest-junit5-plugin</artifactId>
+						<version>1.2.3</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<targetClasses>
+						<param>com.jamsell.gethics.livestock.domain.model.aggregates.*</param>
+						<param>com.jamsell.gethics.livestock.application.internal.*</param>
+						<param>com.jamsell.gethics.livestock.interfaces.acl.*</param>
+						<param>com.jamsell.gethics.veterinary.application.internal.*</param>
+						<param>com.jamsell.gethics.veterinary.infrastructure.acl.*</param>
+						<param>com.jamsell.gethics.sanitary.interfaces.acl.*</param>
+						<param>com.jamsell.gethics.sanitary.application.internal.eventhandlers.*</param>
+					</targetClasses>
+					<targetTests>
+						<param>com.jamsell.gethics.livestock.domain.*</param>
+						<param>com.jamsell.gethics.livestock.application.*</param>
+						<param>com.jamsell.gethics.livestock.interfaces.acl.*</param>
+						<param>com.jamsell.gethics.veterinary.application.*</param>
+						<param>com.jamsell.gethics.veterinary.infrastructure.acl.*</param>
+						<param>com.jamsell.gethics.sanitary.interfaces.acl.*</param>
+						<param>com.jamsell.gethics.sanitary.application.*</param>
+					</targetTests>
+					<outputFormats>
+						<param>HTML</param>
+						<param>XML</param>
+					</outputFormats>
+					<timestampedReports>false</timestampedReports>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

@@ -13,4 +13,7 @@ public interface ClinicalHistoryQueryRepository {
      * ClinicalHistory o su historial no tiene eventos (no se distinguen: livestock aun no permite validar el animal).
      */
     List<SanitaryEvent> findEventsByAnimalId(UUID animalId);
+
+    /** Eventos COMPLETED de esos animales (una sola consulta); cada evento trae su historial para conocer el animal. */
+    List<SanitaryEvent> findCompletedEventsByAnimalIds(java.util.Collection<UUID> animalIds);
 }

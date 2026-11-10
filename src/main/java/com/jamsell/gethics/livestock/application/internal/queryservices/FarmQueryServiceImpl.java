@@ -1,6 +1,7 @@
 package com.jamsell.gethics.livestock.application.internal.queryservices;
 
 import com.jamsell.gethics.livestock.domain.model.aggregates.Farm;
+import com.jamsell.gethics.livestock.domain.model.queries.GetFarmByIdQuery;
 import com.jamsell.gethics.livestock.domain.model.queries.GetFarmsByOwnerQuery;
 import com.jamsell.gethics.livestock.domain.repositories.FarmQueryRepository;
 import com.jamsell.gethics.livestock.domain.services.FarmQueryService;
@@ -22,5 +23,11 @@ public class FarmQueryServiceImpl implements FarmQueryService {
     @Transactional(readOnly = true)
     public List<Farm> handle(GetFarmsByOwnerQuery query) {
         return repository.findByOwnerId(query.ownerId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<Farm> handle(GetFarmByIdQuery query) {
+        return repository.findById(query.farmId());
     }
 }

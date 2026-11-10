@@ -1,5 +1,6 @@
 package com.jamsell.gethics.sanitary.domain.services;
 
+import com.jamsell.gethics.sanitary.domain.model.commands.CancelAllScheduledEventsCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
@@ -16,4 +17,7 @@ public interface ClinicalHistoryCommandService {
     SanitaryEvent handle(CompleteScheduledEventCommand command);
 
     SanitaryEvent handle(CancelScheduledEventCommand command);
+
+    /** Cancela todos los eventos programados del animal; devuelve cuantos cancelo (0 si no tiene historial). */
+    int handle(CancelAllScheduledEventsCommand command);
 }

@@ -2,7 +2,9 @@ package com.jamsell.gethics.livestock.application.internal.queryservices;
 
 import com.jamsell.gethics.livestock.domain.exceptions.AnimalNotFoundException;
 import com.jamsell.gethics.livestock.domain.model.aggregates.Animal;
+import com.jamsell.gethics.livestock.domain.exceptions.AnimalQrNotFoundException;
 import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalByIdQuery;
+import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalByQrCodeQuery;
 import com.jamsell.gethics.livestock.domain.model.queries.GetAnimalsQuery;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalQueryRepository;
 import com.jamsell.gethics.livestock.domain.repositories.AnimalRepository;
@@ -35,5 +37,12 @@ public class AnimalQueryServiceImpl implements AnimalQueryService {
     public Animal handle(GetAnimalByIdQuery query) {
         return repository.findById(query.animalId())
                 .orElseThrow(() -> new AnimalNotFoundException(query.animalId()));
+    }
+
+    /** US-29: busca por el codigo del QR; un codigo desconocido es "no se encontro el registro". */
+    @Override
+    @Transactional(readOnly = true)
+    public Animal handle(GetAnimalByQrCodeQuery query) {
+        return repository.findByQrCode(query.code()).orElseThrow(AnimalQrNotFoundException::new);
     }
 }

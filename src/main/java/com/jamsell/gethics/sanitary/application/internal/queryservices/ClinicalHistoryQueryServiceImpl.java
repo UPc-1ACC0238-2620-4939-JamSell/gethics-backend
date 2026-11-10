@@ -2,6 +2,7 @@ package com.jamsell.gethics.sanitary.application.internal.queryservices;
 
 import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.domain.model.queries.GetClinicalHistoryQuery;
+import com.jamsell.gethics.sanitary.domain.model.queries.GetCompletedEventsByAnimalsQuery;
 import com.jamsell.gethics.sanitary.domain.repositories.ClinicalHistoryQueryRepository;
 import com.jamsell.gethics.sanitary.domain.services.ClinicalHistoryQueryService;
 import org.springframework.stereotype.Service;
@@ -26,5 +27,11 @@ public class ClinicalHistoryQueryServiceImpl implements ClinicalHistoryQueryServ
         return repository.findEventsByAnimalId(query.animalId()).stream()
                 .sorted(ClinicalHistoryChronologicalComparator.INSTANCE)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SanitaryEvent> handle(GetCompletedEventsByAnimalsQuery query) {
+        return query.animalIds().isEmpty() ? List.of() : repository.findCompletedEventsByAnimalIds(query.animalIds());
     }
 }

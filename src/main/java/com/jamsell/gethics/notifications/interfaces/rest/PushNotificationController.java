@@ -4,6 +4,9 @@ import com.jamsell.gethics.notifications.domain.model.commands.SendPushNotificat
 import com.jamsell.gethics.notifications.domain.services.NotificationDispatchCommandService;
 import com.jamsell.gethics.notifications.interfaces.rest.resources.PushNotificationResultResource;
 import com.jamsell.gethics.notifications.interfaces.rest.resources.SendPushNotificationResource;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -24,6 +27,12 @@ public class PushNotificationController {
         this.dispatchService = dispatchService;
     }
 
+    @Operation(summary = "Enviar una notificacion push",
+            description = "US-22: envia una notificacion al usuario si tiene las push habilitadas; si no, responde 201 con el resultado SKIPPED_DISABLED; si el proveedor falla, DELIVERY_FAILED.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Solicitud procesada; el resultado indica si se envio"),
+        @ApiResponse(responseCode = "400", description = "Datos invalidos (userId, categoria, titulo o mensaje vacios)")
+    })
     @PostMapping
     public ResponseEntity<PushNotificationResultResource> send(@Valid @RequestBody SendPushNotificationResource resource) {
         var command = new SendPushNotificationCommand(

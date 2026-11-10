@@ -10,6 +10,9 @@ import com.jamsell.gethics.iot.interfaces.rest.resources.RegisterSensorReadingRe
 import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingPageResource;
 import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingResource;
 import com.jamsell.gethics.iot.interfaces.rest.transform.DeviceAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -42,6 +45,13 @@ public class DeviceController {
     }
 
     /** US-23 Escenario 1: el ganadero vincula su dispositivo IoT compatible mediante su codigo. */
+    @Operation(summary = "Vincular un dispositivo IoT",
+            description = "US-23: vincula un dispositivo compatible a un ganadero mediante su codigo unico.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Dispositivo vinculado"),
+        @ApiResponse(responseCode = "400", description = "Datos invalidos (codigo o ownerId vacios)"),
+        @ApiResponse(responseCode = "409", description = "Ya existe un dispositivo con ese codigo")
+    })
     @PostMapping("/link")
     public ResponseEntity<DeviceResource> link(@Valid @RequestBody LinkDeviceResource resource) {
         var device = commandService.handle(DeviceAssembler.toCommand(resource));
@@ -49,12 +59,25 @@ public class DeviceController {
     }
 
     /** Dispositivos de un ganadero, con su estado actual (CONNECTED/DISCONNECTED). */
+    @Operation(summary = "Listar los dispositivos de un ganadero",
+            description = "Devuelve los dispositivos del ganadero con su estado actual (CONNECTED o DISCONNECTED).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Listado de dispositivos (vacio si no tiene ninguno)"),
+        @ApiResponse(responseCode = "400", description = "ownerId ausente o con formato invalido")
+    })
     @GetMapping
     public List<DeviceResource> listDevices(@RequestParam UUID ownerId) {
         return DeviceAssembler.toResourceList(queryService.handle(new GetDevicesByOwnerQuery(ownerId)));
     }
 
     /** Ingesta HTTP de una lectura del sensor para un dispositivo ya vinculado. */
+    @Operation(summary = "Registrar una lectura del sensor",
+            description = "Ingesta HTTP de una lectura (metrica y valor) para un dispositivo ya vinculado, identificado por su codigo.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Lectura registrada"),
+        @ApiResponse(responseCode = "400", description = "Lectura invalida (metrica o valor vacios)"),
+        @ApiResponse(responseCode = "404", description = "No existe un dispositivo con ese codigo")
+    })
     @PostMapping("/{code}/readings")
     public ResponseEntity<SensorReadingResource> registerReading(@PathVariable String code,
             @Valid @RequestBody RegisterSensorReadingResource resource) {
@@ -66,6 +89,13 @@ public class DeviceController {
      * US-37: lecturas de un dispositivo, de la mas reciente a la mas antigua. Sin lecturas devuelve 200 con
      * {@code content} vacio (Escenario 2); si el dispositivo no existe, 404.
      */
+    @Operation(summary = "Consultar las lecturas de un dispositivo",
+            description = "US-37: lecturas paginadas, de la mas reciente a la mas antigua. Sin lecturas devuelve 200 con content vacio.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Pagina de lecturas"),
+        @ApiResponse(responseCode = "400", description = "page negativo o size fuera del rango permitido"),
+        @ApiResponse(responseCode = "404", description = "El dispositivo no existe")
+    })
     @GetMapping("/{id}/readings")
     public SensorReadingPageResource listReadings(@PathVariable UUID id,
             @RequestParam(defaultValue = "0") int page,

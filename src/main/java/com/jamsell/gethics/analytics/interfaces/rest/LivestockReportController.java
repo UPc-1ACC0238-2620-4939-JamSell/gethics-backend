@@ -6,6 +6,9 @@ import com.jamsell.gethics.analytics.domain.services.LivestockReportExportServic
 import com.jamsell.gethics.analytics.domain.services.LivestockReportQueryService;
 import com.jamsell.gethics.analytics.interfaces.rest.resources.LivestockReportResource;
 import com.jamsell.gethics.analytics.interfaces.rest.transform.LivestockReportResourceAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.Map;
@@ -41,6 +44,13 @@ public class LivestockReportController {
         this.exportService = exportService;
     }
 
+    @Operation(summary = "Reporte y estadisticas del ganado",
+            description = "US-20: indicadores de salud, productividad y finanzas del ganadero en el rango from-to (formato yyyy-MM-dd).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Reporte generado"),
+        @ApiResponse(responseCode = "400", description = "Rango invalido (from posterior a to) o parametros ausentes"),
+        @ApiResponse(responseCode = "404", description = "No hay datos suficientes para el periodo")
+    })
     @GetMapping
     public ResponseEntity<LivestockReportResource> getReport(
             @RequestParam UUID ownerId,
@@ -51,6 +61,13 @@ public class LivestockReportController {
     }
 
     /** US-39: descarga el reporte del periodo como archivo CSV. */
+    @Operation(summary = "Exportar el reporte del ganado en CSV",
+            description = "US-39: descarga el mismo reporte del periodo como archivo CSV (text/csv, UTF-8) con Content-Disposition attachment.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Archivo CSV del reporte"),
+        @ApiResponse(responseCode = "400", description = "Rango invalido (from posterior a to) o parametros ausentes"),
+        @ApiResponse(responseCode = "404", description = "No hay datos suficientes para el periodo")
+    })
     @GetMapping("/export")
     public ResponseEntity<byte[]> exportReport(
             @RequestParam UUID ownerId,

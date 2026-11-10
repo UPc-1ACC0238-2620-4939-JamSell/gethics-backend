@@ -32,6 +32,11 @@ public class AnimalRepositoryImpl implements AnimalRepository {
     }
 
     @Override
+    public Optional<Animal> findByQrCode(String qrCode) {
+        return jpaRepository.findByQrCode(qrCode);
+    }
+
+    @Override
     public Animal save(Animal animal) {
         return jpaRepository.saveAndFlush(animal);
     }

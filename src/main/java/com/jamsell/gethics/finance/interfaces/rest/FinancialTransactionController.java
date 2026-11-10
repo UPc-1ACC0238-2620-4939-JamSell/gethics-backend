@@ -9,6 +9,9 @@ import com.jamsell.gethics.finance.interfaces.rest.resources.RegisterTransaction
 import com.jamsell.gethics.finance.interfaces.rest.resources.TransactionResource;
 import com.jamsell.gethics.finance.interfaces.rest.transform.RegisterTransactionCommandFromResourceAssembler;
 import com.jamsell.gethics.finance.interfaces.rest.transform.TransactionResourceFromEntityAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -36,6 +39,12 @@ public class FinancialTransactionController {
         this.queryService = queryService;
     }
 
+    @Operation(summary = "Registrar un ingreso o egreso",
+            description = "Crea un movimiento financiero del ganadero (INCOME o EXPENSE) con monto, fecha y categoria.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Movimiento registrado"),
+        @ApiResponse(responseCode = "400", description = "Datos invalidos (monto <= 0 o campos obligatorios vacios)")
+    })
     @PostMapping
     public ResponseEntity<TransactionResource> register(@Valid @RequestBody RegisterTransactionResource resource) {
         var command = RegisterTransactionCommandFromResourceAssembler.toCommandFromResource(resource);
@@ -44,6 +53,14 @@ public class FinancialTransactionController {
                 .body(TransactionResourceFromEntityAssembler.toResourceFromEntity(transaction));
     }
 
+    @Operation(summary = "Balance economico del ganadero",
+            description = "Devuelve ingresos, egresos, saldo y movimientos activos. Sin from/to usa todo el historial; "
+                    + "con from y to filtra el periodo. Los movimientos anulados no cuentan. Si no hay movimientos "
+                    + "devuelve 200 con un mensaje.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Balance calculado"),
+        @ApiResponse(responseCode = "400", description = "Periodo invalido (falta from o to, o from es posterior a to)")
+    })
     @GetMapping
     public ResponseEntity<FinancialSummaryResource> getSummary(
             @RequestParam UUID ownerId,
@@ -64,6 +81,12 @@ public class FinancialTransactionController {
                 message));
     }
 
+    @Operation(summary = "Anular un movimiento financiero",
+            description = "US-31: marca el movimiento como anulado sin borrarlo; deja de sumar en el balance.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Movimiento anulado"),
+        @ApiResponse(responseCode = "400", description = "El movimiento no existe o ya estaba anulado")
+    })
     @PostMapping("/{id}/void")
     public ResponseEntity<Void> voidTransaction(@PathVariable UUID id) {
         var command = new VoidTransactionCommand(id);

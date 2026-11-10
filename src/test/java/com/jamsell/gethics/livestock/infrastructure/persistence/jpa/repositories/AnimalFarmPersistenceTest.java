@@ -122,12 +122,15 @@ class AnimalFarmPersistenceTest {
         var other = saveFarm("Otro");
         var b = saveAnimal("-B", AnimalStatus.ACTIVE);
         var a = saveAnimal("-A", AnimalStatus.ACTIVE);
-        var sold = saveAnimal("-S", AnimalStatus.SOLD);
+        // Un animal solo cambia de granja mientras esta ACTIVE: se asigna y despues pasa a vendido.
+        var sold = saveAnimal("-S", AnimalStatus.ACTIVE);
         var elsewhere = saveAnimal("-X", AnimalStatus.ACTIVE);
         for (var animal : List.of(a, b, sold)) {
             commandService.handle(new AssignAnimalToFarmCommand(animal.getId(), farm.getId()));
         }
         commandService.handle(new AssignAnimalToFarmCommand(elsewhere.getId(), other.getId()));
+        ReflectionTestUtils.setField(animals.findById(sold.getId()).orElseThrow(), "status", AnimalStatus.SOLD);
+        em.flush();
         em.clear();
 
         assertEquals(List.of((token + "-A").toUpperCase(), (token + "-B").toUpperCase()), tags(farm.getId(), AnimalStatus.ACTIVE));

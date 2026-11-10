@@ -1,18 +1,24 @@
 package com.jamsell.gethics.veterinary.application.internal.commandservices;
 
 import com.jamsell.gethics.veterinary.application.internal.outboundservices.ClinicalHistoryWriter;
+import com.jamsell.gethics.veterinary.application.internal.outboundservices.PatientAccessLookup;
 import com.jamsell.gethics.veterinary.domain.model.aggregates.CareRecord;
-import com.jamsell.gethics.veterinary.domain.model.aggregates.VeterinaryAssignment;
-import com.jamsell.gethics.veterinary.domain.model.commands.AssignClientCommand;
 import com.jamsell.gethics.veterinary.domain.model.commands.RegisterCareCommand;
 import com.jamsell.gethics.veterinary.domain.model.commands.SyncCareBatchCommand;
-import com.jamsell.gethics.veterinary.domain.model.commands.UnassignClientCommand;
 import com.jamsell.gethics.veterinary.domain.model.exceptions.CareConflictException;
+import com.jamsell.gethics.veterinary.domain.model.exceptions.CareRejectedException;
+import com.jamsell.gethics.veterinary.domain.model.exceptions.ClinicalHistorySyncException;
+import com.jamsell.gethics.veterinary.domain.model.exceptions.PatientAccessDeniedException;
+import com.jamsell.gethics.veterinary.domain.model.exceptions.PatientNotActiveException;
+import com.jamsell.gethics.veterinary.domain.model.exceptions.PatientNotFoundException;
+import com.jamsell.gethics.veterinary.domain.model.exceptions.PatientWithoutClientException;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.CareRegistration;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.CareSyncOutcome;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.CareSyncStatus;
+import com.jamsell.gethics.veterinary.domain.model.valueobjects.VeterinaryAssignmentStatus;
 import com.jamsell.gethics.veterinary.domain.services.CareRecordCommandService;
 import com.jamsell.gethics.veterinary.infrastructure.persistence.jpa.repositories.CareRecordRepository;
+import com.jamsell.gethics.veterinary.infrastructure.persistence.jpa.repositories.VeterinaryAssignmentRepository;
 import java.util.List;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -22,19 +28,24 @@ public class CareRecordCommandServiceImpl implements CareRecordCommandService {
 
     private final CareRecordRepository careRecordRepository;
     private final ClinicalHistoryWriter clinicalHistoryWriter;
-
-
-    public interface VeterinaryAssignmentCommandService {
-        VeterinaryAssignment handle(AssignClientCommand command);
-        void handle(UnassignClientCommand command); // <-- Añade esta línea
-    }
+    private final VeterinaryAssignmentRepository assignmentRepository;
+    private final PatientAccessLookup patientAccessLookup;
 
     public CareRecordCommandServiceImpl(CareRecordRepository careRecordRepository,
-                                        ClinicalHistoryWriter clinicalHistoryWriter) {
+                                        ClinicalHistoryWriter clinicalHistoryWriter,
+                                        VeterinaryAssignmentRepository assignmentRepository,
+                                        PatientAccessLookup patientAccessLookup) {
         this.careRecordRepository = careRecordRepository;
         this.clinicalHistoryWriter = clinicalHistoryWriter;
+        this.assignmentRepository = assignmentRepository;
+        this.patientAccessLookup = patientAccessLookup;
     }
 
+    /**
+     * Un reintento con el mismo clientRequestId nunca vuelve a validar el paciente: devuelve el registro existente (y
+     * termina de sincronizar su historial si quedo pendiente). Una atencion nueva exige un paciente real y ACTIVE
+     * de un cliente asignado al veterinario.
+     */
     @Override
     public CareRegistration handle(RegisterCareCommand command) {
         var existing = careRecordRepository.findByClientRequestId(command.clientRequestId());
@@ -42,6 +53,7 @@ public class CareRecordCommandServiceImpl implements CareRecordCommandService {
             return resolveExisting(existing.get(), command);
         }
         var record = new CareRecord(command);
+        authorize(command);
         try {
             var saved = careRecordRepository.saveAndFlush(record);
             pushToHistory(saved);
@@ -66,9 +78,29 @@ public class CareRecordCommandServiceImpl implements CareRecordCommandService {
         } catch (CareConflictException exception) {
             return new CareSyncOutcome(item.clientRequestId(), CareSyncStatus.CONFLICT,
                     exception.getMessage(), null);
-        } catch (IllegalArgumentException exception) {
+        } catch (CareRejectedException | IllegalArgumentException exception) {
             return new CareSyncOutcome(item.clientRequestId(), CareSyncStatus.REJECTED,
                     exception.getMessage(), null);
+        } catch (ClinicalHistorySyncException exception) {
+            // La atencion si quedo guardada: el ultimo paso se completa al reintentar el mismo clientRequestId.
+            return new CareSyncOutcome(item.clientRequestId(), CareSyncStatus.FAILED,
+                    exception.getMessage(), null);
+        }
+    }
+
+    private void authorize(RegisterCareCommand command) {
+        var patient = patientAccessLookup.findByPatientId(command.patientId())
+                .orElseThrow(() -> new PatientNotFoundException(command.patientId()));
+        if (!patient.active()) {
+            throw new PatientNotActiveException(command.patientId());
+        }
+        if (patient.clientId() == null) {
+            throw new PatientWithoutClientException(command.patientId());
+        }
+        var assigned = assignmentRepository.existsByVeterinarianIdAndClientIdAndStatus(
+                command.veterinarianId(), patient.clientId(), VeterinaryAssignmentStatus.ACTIVE);
+        if (!assigned) {
+            throw new PatientAccessDeniedException(command.veterinarianId(), command.patientId());
         }
     }
 
@@ -83,7 +115,11 @@ public class CareRecordCommandServiceImpl implements CareRecordCommandService {
     }
 
     private void pushToHistory(CareRecord record) {
-        clinicalHistoryWriter.append(record);
+        try {
+            clinicalHistoryWriter.append(record);
+        } catch (RuntimeException exception) {
+            throw new ClinicalHistorySyncException(exception);
+        }
         record.markHistorySynced();
         careRecordRepository.save(record);
     }

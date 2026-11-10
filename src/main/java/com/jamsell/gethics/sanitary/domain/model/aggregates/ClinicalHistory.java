@@ -90,4 +90,22 @@ public class ClinicalHistory {
                 .findFirst()
                 .orElseThrow(SanitaryEventNotFoundException::new);
     }
+
+    /**
+     * El animal dejo de estar activo (baja o venta): cancela todos sus eventos SCHEDULED para que salgan del
+     * calendario y no generen recordatorios. Los COMPLETED y CANCELLED no cambian. Devuelve cuantos cancelo.
+     */
+    public int cancelAllScheduledEvents() {
+        int cancelled = 0;
+        for (var event : events) {
+            if (event.getStatus() == com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus.SCHEDULED) {
+                event.cancel();
+                cancelled++;
+            }
+        }
+        if (cancelled > 0) {
+            updatedAt = Instant.now();
+        }
+        return cancelled;
+    }
 }

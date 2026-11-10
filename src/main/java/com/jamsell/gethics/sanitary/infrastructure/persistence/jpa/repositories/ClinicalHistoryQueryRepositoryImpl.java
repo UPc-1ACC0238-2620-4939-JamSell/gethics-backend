@@ -20,4 +20,9 @@ public class ClinicalHistoryQueryRepositoryImpl implements ClinicalHistoryQueryR
     public List<SanitaryEvent> findEventsByAnimalId(UUID animalId) {
         return jpaRepository.findByClinicalHistory_AnimalId(animalId);
     }
+
+    @Override
+    public List<SanitaryEvent> findCompletedEventsByAnimalIds(java.util.Collection<UUID> animalIds) {
+        return jpaRepository.findCompletedByAnimalIds(animalIds);
+    }
 }

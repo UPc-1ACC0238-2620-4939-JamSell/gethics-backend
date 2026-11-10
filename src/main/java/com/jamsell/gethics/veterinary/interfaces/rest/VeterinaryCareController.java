@@ -8,6 +8,9 @@ import com.jamsell.gethics.veterinary.interfaces.rest.resources.RegisterCareReso
 import com.jamsell.gethics.veterinary.interfaces.rest.resources.SyncCareResource;
 import com.jamsell.gethics.veterinary.interfaces.rest.resources.SyncCareResponseResource;
 import com.jamsell.gethics.veterinary.interfaces.rest.transform.CareRecordAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -32,6 +35,17 @@ public class VeterinaryCareController {
         this.commandService = commandService;
     }
 
+    @Operation(summary = "Registrar una atencion veterinaria",
+            description = "US-19 / TS07: valida que el paciente exista, este activo y sea de un cliente asignado al veterinario; guarda la atencion, la agrega al historial clinico del animal (visible para el ganadero) y, si trae proximo control futuro, lo programa como CHECKUP en el calendario sanitario. Es idempotente por clientRequestId: 201 la primera vez y 200 en un reintento identico.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Atencion registrada"),
+        @ApiResponse(responseCode = "200", description = "Reintento idempotente: devuelve la atencion ya registrada"),
+        @ApiResponse(responseCode = "400", description = "Datos invalidos (diagnostico o tratamiento vacios, fecha futura, control anterior a la atencion)"),
+        @ApiResponse(responseCode = "403", description = "El veterinario no esta asignado al cliente dueno del animal"),
+        @ApiResponse(responseCode = "404", description = "El paciente (animal) no existe"),
+        @ApiResponse(responseCode = "409", description = "El clientRequestId ya se uso con otros datos, o el animal ya no esta activo / no tiene granja"),
+        @ApiResponse(responseCode = "503", description = "La atencion quedo guardada pero el historial clinico aun no se actualizo: reintentar con el mismo clientRequestId")
+    })
     @PostMapping("/patients/{patientId}/care")
     public ResponseEntity<CareRecordResource> registerCare(@PathVariable UUID patientId,
                                                            @Valid @RequestBody RegisterCareResource resource) {
@@ -40,6 +54,12 @@ public class VeterinaryCareController {
         return ResponseEntity.status(status).body(CareRecordAssembler.toResource(result.record()));
     }
 
+    @Operation(summary = "Sincronizar atenciones veterinarias en lote",
+            description = "US-19 / US-35: procesa hasta 100 atenciones registradas sin conexion. Cada item devuelve su resultado (CREATED, DUPLICATE, CONFLICT, REJECTED por regla de negocio, o FAILED si el historial no se pudo actualizar y hay que reintentar); un item fallido no detiene al resto.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Lote procesado; el estado de cada item viene en results"),
+        @ApiResponse(responseCode = "400", description = "Lote vacio o con mas de 100 items")
+    })
     @PostMapping("/care/sync")
     public ResponseEntity<SyncCareResponseResource> sync(@Valid @RequestBody SyncCareResource resource) {
         var items = resource.items().stream().map(CareRecordAssembler::toCommand).toList();

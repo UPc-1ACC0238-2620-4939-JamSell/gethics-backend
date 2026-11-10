@@ -3,6 +3,7 @@ package com.jamsell.gethics.veterinary.application.internal.commandservices;
 import com.jamsell.gethics.veterinary.domain.model.aggregates.VeterinaryAssignment;
 import com.jamsell.gethics.veterinary.domain.model.commands.AssignClientCommand;
 import com.jamsell.gethics.veterinary.domain.model.commands.UnassignClientCommand;
+import com.jamsell.gethics.veterinary.domain.model.exceptions.AssignmentNotFoundException;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.VeterinaryAssignmentStatus;
 import com.jamsell.gethics.veterinary.domain.services.VeterinaryAssignmentCommandService;
 import com.jamsell.gethics.veterinary.infrastructure.persistence.jpa.repositories.VeterinaryAssignmentRepository;
@@ -30,12 +31,17 @@ public class VeterinaryAssignmentCommandServiceImpl implements VeterinaryAssignm
         return assignmentRepository.save(assignment);
     }
 
+    /**
+     * US-34: la asignacion pasa a INACTIVE (no se borra): el cliente deja de aparecer en la lista activa y queda el
+     * rastro de la relacion. Una asignacion inexistente o ya desvinculada es "no encontrada" (404).
+     */
     @Override
     @Transactional
     public void handle(UnassignClientCommand command) {
         var assignment = assignmentRepository.findById(command.assignmentId())
-                .orElseThrow(() -> new IllegalArgumentException("Assignment with ID " + command.assignmentId() + " not found or already unassigned"));
-
-        assignmentRepository.delete(assignment);
+                .filter(VeterinaryAssignment::isActive)
+                .orElseThrow(() -> new AssignmentNotFoundException(command.assignmentId()));
+        assignment.deactivate();
+        assignmentRepository.save(assignment);
     }
 }
