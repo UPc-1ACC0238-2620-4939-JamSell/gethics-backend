@@ -2,6 +2,7 @@ package com.jamsell.gethics.veterinary.application.internal.commandservices;
 
 import com.jamsell.gethics.veterinary.domain.model.aggregates.VeterinaryAssignment;
 import com.jamsell.gethics.veterinary.domain.model.commands.AssignClientCommand;
+import com.jamsell.gethics.veterinary.domain.model.commands.UnassignClientCommand;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.VeterinaryAssignmentStatus;
 import com.jamsell.gethics.veterinary.domain.services.VeterinaryAssignmentCommandService;
 import com.jamsell.gethics.veterinary.infrastructure.persistence.jpa.repositories.VeterinaryAssignmentRepository;
@@ -28,5 +29,13 @@ public class VeterinaryAssignmentCommandServiceImpl implements VeterinaryAssignm
         var assignment = new VeterinaryAssignment(command.veterinarianId(), command.clientId());
         return assignmentRepository.save(assignment);
     }
-}
 
+    @Override
+    @Transactional
+    public void handle(UnassignClientCommand command) {
+        var assignment = assignmentRepository.findById(command.assignmentId())
+                .orElseThrow(() -> new IllegalArgumentException("Assignment with ID " + command.assignmentId() + " not found or already unassigned"));
+
+        assignmentRepository.delete(assignment);
+    }
+}
