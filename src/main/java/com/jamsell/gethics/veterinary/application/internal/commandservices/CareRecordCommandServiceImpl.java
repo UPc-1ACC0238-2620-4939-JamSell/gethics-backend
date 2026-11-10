@@ -2,8 +2,11 @@ package com.jamsell.gethics.veterinary.application.internal.commandservices;
 
 import com.jamsell.gethics.veterinary.application.internal.outboundservices.ClinicalHistoryWriter;
 import com.jamsell.gethics.veterinary.domain.model.aggregates.CareRecord;
+import com.jamsell.gethics.veterinary.domain.model.aggregates.VeterinaryAssignment;
+import com.jamsell.gethics.veterinary.domain.model.commands.AssignClientCommand;
 import com.jamsell.gethics.veterinary.domain.model.commands.RegisterCareCommand;
 import com.jamsell.gethics.veterinary.domain.model.commands.SyncCareBatchCommand;
+import com.jamsell.gethics.veterinary.domain.model.commands.UnassignClientCommand;
 import com.jamsell.gethics.veterinary.domain.model.exceptions.CareConflictException;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.CareRegistration;
 import com.jamsell.gethics.veterinary.domain.model.valueobjects.CareSyncOutcome;
@@ -19,6 +22,12 @@ public class CareRecordCommandServiceImpl implements CareRecordCommandService {
 
     private final CareRecordRepository careRecordRepository;
     private final ClinicalHistoryWriter clinicalHistoryWriter;
+
+
+    public interface VeterinaryAssignmentCommandService {
+        VeterinaryAssignment handle(AssignClientCommand command);
+        void handle(UnassignClientCommand command); // <-- Añade esta línea
+    }
 
     public CareRecordCommandServiceImpl(CareRecordRepository careRecordRepository,
                                         ClinicalHistoryWriter clinicalHistoryWriter) {
