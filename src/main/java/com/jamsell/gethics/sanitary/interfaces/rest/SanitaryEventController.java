@@ -1,23 +1,31 @@
 package com.jamsell.gethics.sanitary.interfaces.rest;
 
+import com.jamsell.gethics.sanitary.application.internal.commandservices.SanitarySyncCommandServiceImpl;
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.SyncOfflineSanitaryEventItem;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventCreation;
 import com.jamsell.gethics.sanitary.domain.services.ClinicalHistoryCommandService;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.CompleteSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.RegisterSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.SanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.ScheduleSanitaryEventResource;
+import com.jamsell.gethics.sanitary.interfaces.rest.resources.SyncSanitaryEventsResource;
+import com.jamsell.gethics.sanitary.interfaces.rest.resources.SyncSanitaryEventsResultResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.transform.SanitaryEventAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Sanitary")
 @RestController
@@ -25,18 +33,48 @@ import java.util.UUID;
 public class SanitaryEventController {
 
     private final ClinicalHistoryCommandService commandService;
+    private final SanitarySyncCommandServiceImpl sanitarySyncCommandService;
 
-    public SanitaryEventController(ClinicalHistoryCommandService commandService) {
+    public SanitaryEventController(
+            ClinicalHistoryCommandService commandService,
+            SanitarySyncCommandServiceImpl sanitarySyncCommandService
+    ) {
         this.commandService = commandService;
+        this.sanitarySyncCommandService = sanitarySyncCommandService;
+    }
+
+    @PostMapping("/sync")
+    @Operation(
+            summary = "Sincronizar eventos sanitarios offline",
+            description = "US-40: Reintenta y sincroniza por lotes eventos sanitarios registrados sin conexion de forma idempotente."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lote procesado"),
+            @ApiResponse(responseCode = "400", description = "Solicitud invalida")
+    })
+    public ResponseEntity<SyncSanitaryEventsResultResource> syncOfflineEvents(
+            @PathVariable UUID animalId,
+            @Valid @RequestBody SyncSanitaryEventsResource request
+    ) {
+        List<SyncOfflineSanitaryEventItem> items = request.events().stream()
+                .map(e -> new SyncOfflineSanitaryEventItem(
+                        e.clientEventId(),
+                        e.animalId() != null ? e.animalId() : animalId,
+                        e.eventType(),
+                        e.description(),
+                        e.eventDate()
+                ))
+                .toList();
+        return ResponseEntity.ok(sanitarySyncCommandService.syncBatch(items));
     }
 
     @Operation(summary = "Registrar un evento sanitario",
             description = "US-11: registra un evento ya ocurrido (vacuna, tratamiento, enfermedad, chequeo u otro). Con clientRequestId es idempotente (US-35): el primer envio responde 201 y un reintento identico 200.")
     @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "Evento registrado"),
-        @ApiResponse(responseCode = "200", description = "Reintento idempotente: devuelve el evento ya registrado"),
-        @ApiResponse(responseCode = "400", description = "Datos invalidos (tipo o fecha ausentes, fecha futura)"),
-        @ApiResponse(responseCode = "409", description = "El clientRequestId ya se uso con otros datos")
+            @ApiResponse(responseCode = "201", description = "Evento registrado"),
+            @ApiResponse(responseCode = "200", description = "Reintento idempotente: devuelve el evento ya registrado"),
+            @ApiResponse(responseCode = "400", description = "Datos invalidos (tipo o fecha ausentes, fecha futura)"),
+            @ApiResponse(responseCode = "409", description = "El clientRequestId ya se uso con otros datos")
     })
     @PostMapping
     public ResponseEntity<SanitaryEventResource> registerSanitaryEvent(
@@ -48,10 +86,10 @@ public class SanitaryEventController {
     @Operation(summary = "Programar un evento sanitario",
             description = "US-12/US-13: programa un evento futuro; genera recordatorios de vacunacion. Con clientRequestId es idempotente (US-35).")
     @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "Evento programado"),
-        @ApiResponse(responseCode = "200", description = "Reintento idempotente: devuelve el evento ya programado"),
-        @ApiResponse(responseCode = "400", description = "Datos invalidos o fecha programada ya vencida"),
-        @ApiResponse(responseCode = "409", description = "El clientRequestId ya se uso con otros datos")
+            @ApiResponse(responseCode = "201", description = "Evento programado"),
+            @ApiResponse(responseCode = "200", description = "Reintento idempotente: devuelve el evento ya programado"),
+            @ApiResponse(responseCode = "400", description = "Datos invalidos o fecha programada ya vencida"),
+            @ApiResponse(responseCode = "409", description = "El clientRequestId ya se uso con otros datos")
     })
     @PostMapping("/scheduled")
     public ResponseEntity<SanitaryEventResource> scheduleSanitaryEvent(
@@ -70,10 +108,10 @@ public class SanitaryEventController {
     @Operation(summary = "Completar un evento programado",
             description = "Registra como aplicado el mismo evento programado (SCHEDULED a COMPLETED) sin crear uno nuevo.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Evento completado"),
-        @ApiResponse(responseCode = "400", description = "Datos invalidos o fecha futura"),
-        @ApiResponse(responseCode = "404", description = "El animal no tiene ese evento"),
-        @ApiResponse(responseCode = "409", description = "El evento no esta programado (ya completado o cancelado)")
+            @ApiResponse(responseCode = "200", description = "Evento completado"),
+            @ApiResponse(responseCode = "400", description = "Datos invalidos o fecha futura"),
+            @ApiResponse(responseCode = "404", description = "El animal no tiene ese evento"),
+            @ApiResponse(responseCode = "409", description = "El evento no esta programado (ya completado o cancelado)")
     })
     @PostMapping("/{eventId}/complete")
     public SanitaryEventResource completeScheduledEvent(
@@ -88,9 +126,9 @@ public class SanitaryEventController {
     @Operation(summary = "Cancelar un evento programado",
             description = "US-33: cambia el evento de SCHEDULED a CANCELLED sin borrarlo; queda en el historial clinico y sale del calendario y de los recordatorios.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Evento cancelado"),
-        @ApiResponse(responseCode = "404", description = "El animal no tiene ese evento"),
-        @ApiResponse(responseCode = "409", description = "El evento no esta programado (ya completado o cancelado)")
+            @ApiResponse(responseCode = "200", description = "Evento cancelado"),
+            @ApiResponse(responseCode = "404", description = "El animal no tiene ese evento"),
+            @ApiResponse(responseCode = "409", description = "El evento no esta programado (ya completado o cancelado)")
     })
     @PostMapping("/{eventId}/cancel")
     public SanitaryEventResource cancelScheduledEvent(@PathVariable UUID animalId, @PathVariable UUID eventId) {
