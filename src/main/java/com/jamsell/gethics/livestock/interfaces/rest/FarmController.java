@@ -1,6 +1,8 @@
 package com.jamsell.gethics.livestock.interfaces.rest;
 
+import com.jamsell.gethics.livestock.domain.exceptions.FarmNotFoundException;
 import com.jamsell.gethics.livestock.domain.model.commands.UpdateFarmCommand;
+import com.jamsell.gethics.livestock.domain.model.queries.GetFarmByIdQuery;
 import com.jamsell.gethics.livestock.domain.model.queries.GetFarmsByOwnerQuery;
 import com.jamsell.gethics.livestock.domain.services.FarmCommandService;
 import com.jamsell.gethics.livestock.domain.services.FarmQueryService;
@@ -71,6 +73,20 @@ public class FarmController {
     }
 
     /** US-32: reemplazo completo de nombre, ubicacion y tamano de la granja. */
+    /** Ficha de una granja; la app movil la usa para mostrar la granja asignada a un animal. */
+    @Operation(summary = "Obtener una granja",
+            description = "Devuelve la granja con ese id, sin importar su estado.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Granja encontrada"),
+        @ApiResponse(responseCode = "404", description = "La granja no existe")
+    })
+    @GetMapping("/{id}")
+    public FarmResource getFarm(@PathVariable UUID id) {
+        return queryService.handle(new GetFarmByIdQuery(id))
+                .map(FarmAssembler::toResource)
+                .orElseThrow(FarmNotFoundException::new);
+    }
+
     @Operation(summary = "Editar una granja",
             description = "US-32: actualiza nombre, ubicacion y tamano (tamano ausente = sin registrar). El nombre no puede repetirse entre las granjas del mismo dueno.")
     @ApiResponses({
