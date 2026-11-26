@@ -299,4 +299,66 @@ class ClinicalHistoryTest {
         history.cancelScheduledEvent(event.getId()); // un reintento tardio sigue siendo el mismo request
         assertTrue(event.matches(same));
     }
+
+    // ---- US-47: reprogramacion ----
+
+    @Test
+    void reschedulingKeepsTheSameScheduledEventWithTheNewDateAndNotes() throws InterruptedException {
+        var scheduled = scheduledVaccinationWithId();
+        var before = history.getUpdatedAt();
+        Thread.sleep(2);
+
+        var rescheduled = history.rescheduleScheduledEvent(scheduled.getId(), TODAY.plusDays(10), "Aftosa, segunda dosis", TODAY);
+
+        assertSame(scheduled, rescheduled);
+        assertEquals(1, history.getEvents().size()); // no se crea otro evento
+        assertEquals(SanitaryEventStatus.SCHEDULED, rescheduled.getStatus());
+        assertEquals(TODAY.plusDays(10), rescheduled.getScheduledDate());
+        assertEquals("Aftosa, segunda dosis", rescheduled.getDescription());
+        assertTrue(history.getUpdatedAt().isAfter(before));
+    }
+
+    @Test
+    void reschedulingWithoutNotesKeepsTheCurrentDescriptionAndAcceptsToday() {
+        var scheduled = scheduledVaccinationWithId();
+
+        history.rescheduleScheduledEvent(scheduled.getId(), TODAY, null, TODAY);
+
+        assertEquals(TODAY, scheduled.getScheduledDate());
+        assertEquals("Aftosa", scheduled.getDescription());
+    }
+
+    @Test
+    void aPastDateIsRejectedAndTheEventKeepsItsDate() {
+        var scheduled = scheduledVaccinationWithId();
+
+        assertThrows(PastScheduledDateException.class,
+                () -> history.rescheduleScheduledEvent(scheduled.getId(), TODAY.minusDays(1), "x", TODAY));
+
+        assertEquals(TODAY.plusDays(3), scheduled.getScheduledDate());
+        assertEquals("Aftosa", scheduled.getDescription());
+    }
+
+    @Test
+    void completedOrCancelledEventsCannotBeRescheduled() {
+        var completed = scheduledVaccinationWithId();
+        history.completeScheduledEvent(completed.getId(), TODAY.atTime(9, 0), null, TODAY);
+        var cancelled = scheduledVaccinationWithId();
+        history.cancelScheduledEvent(cancelled.getId());
+
+        var ex = assertThrows(SanitaryEventNotScheduledException.class,
+                () -> history.rescheduleScheduledEvent(completed.getId(), TODAY.plusDays(5), null, TODAY));
+        assertThrows(SanitaryEventNotScheduledException.class,
+                () -> history.rescheduleScheduledEvent(cancelled.getId(), TODAY.plusDays(5), null, TODAY));
+
+        assertEquals("Solo un evento programado (SCHEDULED) puede reprogramarse.", ex.getMessage());
+        assertEquals(TODAY.plusDays(3), completed.getScheduledDate());
+        assertEquals(SanitaryEventStatus.CANCELLED, cancelled.getStatus());
+    }
+
+    @Test
+    void reschedulingAnUnknownEventIsNotFound() {
+        assertThrows(SanitaryEventNotFoundException.class,
+                () -> history.rescheduleScheduledEvent(UUID.randomUUID(), TODAY.plusDays(1), null, TODAY));
+    }
 }

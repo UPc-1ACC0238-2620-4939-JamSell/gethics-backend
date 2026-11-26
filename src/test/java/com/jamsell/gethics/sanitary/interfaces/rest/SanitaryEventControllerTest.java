@@ -9,6 +9,7 @@ import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.RescheduleScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventCreation;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType;
@@ -362,5 +363,63 @@ class SanitaryEventControllerTest {
         postJson("{\"type\":\"CHECKUP\",\"occurredAt\":\"2025-01-01T10:00:00\",\"clientRequestId\":\"no-es-uuid\"}")
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(commandService);
+    }
+
+    // ---- US-47: reprogramacion de un evento programado ----
+
+    @Test
+    void reschedulesTheEventAndReturns200WithTheNewDate() throws Exception {
+        var newDate = LocalDate.now().plusDays(10);
+        var event = new ClinicalHistory(animalId).scheduleEvent(SanitaryEventType.VACCINATION, LocalDate.now().plusDays(3), "Aftosa", LocalDate.now());
+        var eventId = UUID.randomUUID();
+        ReflectionTestUtils.setField(event, "id", eventId);
+        event.reschedule(newDate, "Segunda dosis", LocalDate.now());
+        when(commandService.handle(any(RescheduleScheduledEventCommand.class))).thenReturn(event);
+
+        postJson("/" + eventId + "/reschedule", "{\"scheduledDate\":\"" + newDate + "\",\"description\":\"Segunda dosis\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(eventId.toString()))
+                .andExpect(jsonPath("$.status").value("SCHEDULED"))
+                .andExpect(jsonPath("$.scheduledDate").value(newDate.toString()))
+                .andExpect(jsonPath("$.description").value("Segunda dosis"));
+
+        verify(commandService).handle(new RescheduleScheduledEventCommand(animalId, eventId, newDate, "Segunda dosis"));
+    }
+
+    @Test
+    void reschedulingWithoutDateReturns400WithoutReachingTheService() throws Exception {
+        postJson("/" + UUID.randomUUID() + "/reschedule", "{}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La fecha programada es obligatoria."));
+        verifyNoInteractions(commandService);
+    }
+
+    @Test
+    void reschedulingToAPastDateReturns400() throws Exception {
+        when(commandService.handle(any(RescheduleScheduledEventCommand.class))).thenThrow(new PastScheduledDateException());
+        var today = LocalDate.now();
+
+        postJson("/" + UUID.randomUUID() + "/reschedule", "{\"scheduledDate\":\"" + today + "\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La fecha programada no puede ser anterior a hoy."));
+    }
+
+    @Test
+    void reschedulingAnUnknownEventReturns404() throws Exception {
+        when(commandService.handle(any(RescheduleScheduledEventCommand.class))).thenThrow(new SanitaryEventNotFoundException());
+
+        postJson("/" + UUID.randomUUID() + "/reschedule", "{\"scheduledDate\":\"" + LocalDate.now().plusDays(1) + "\"}")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("El evento sanitario no existe para este animal."));
+    }
+
+    @Test
+    void reschedulingAnEventThatIsNotScheduledReturns409WithMessage() throws Exception {
+        when(commandService.handle(any(RescheduleScheduledEventCommand.class)))
+                .thenThrow(SanitaryEventNotScheduledException.forReschedule());
+
+        postJson("/" + UUID.randomUUID() + "/reschedule", "{\"scheduledDate\":\"" + LocalDate.now().plusDays(1) + "\"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Solo un evento programado (SCHEDULED) puede reprogramarse."));
     }
 }
