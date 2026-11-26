@@ -4,6 +4,7 @@ import com.jamsell.gethics.sanitary.domain.model.commands.CancelAllScheduledEven
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.RescheduleScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventCreation;
@@ -17,6 +18,8 @@ public interface ClinicalHistoryCommandService {
     SanitaryEvent handle(CompleteScheduledEventCommand command);
 
     SanitaryEvent handle(CancelScheduledEventCommand command);
+
+    SanitaryEvent handle(RescheduleScheduledEventCommand command);
 
     /** Cancela todos los eventos programados del animal; devuelve cuantos cancelo (0 si no tiene historial). */
     int handle(CancelAllScheduledEventsCommand command);

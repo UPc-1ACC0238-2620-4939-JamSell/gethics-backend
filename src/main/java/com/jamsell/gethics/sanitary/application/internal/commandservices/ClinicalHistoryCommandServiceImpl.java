@@ -7,6 +7,7 @@ import com.jamsell.gethics.sanitary.domain.model.commands.CancelAllScheduledEven
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.RescheduleScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventCreation;
@@ -114,6 +115,18 @@ public class ClinicalHistoryCommandServiceImpl implements ClinicalHistoryCommand
         var history = repository.findByAnimalId(command.animalId())
                 .orElseThrow(SanitaryEventNotFoundException::new);
         var event = history.cancelScheduledEvent(command.eventId());
+        repository.save(history);
+        return event;
+    }
+
+    /** US-47: un animal sin historial no tiene eventos que reprogramar (404, como al cancelar). */
+    @Override
+    @Transactional
+    public SanitaryEvent handle(RescheduleScheduledEventCommand command) {
+        var history = repository.findByAnimalId(command.animalId())
+                .orElseThrow(SanitaryEventNotFoundException::new);
+        var event = history.rescheduleScheduledEvent(command.eventId(), command.scheduledDate(), command.description(),
+                LocalDate.now(clock));
         repository.save(history);
         return event;
     }

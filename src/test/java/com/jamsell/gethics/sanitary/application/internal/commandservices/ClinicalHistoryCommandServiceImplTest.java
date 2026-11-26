@@ -9,6 +9,7 @@ import com.jamsell.gethics.sanitary.domain.model.aggregates.ClinicalHistory;
 import com.jamsell.gethics.sanitary.domain.model.commands.CancelScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.RescheduleScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus;
@@ -346,5 +347,58 @@ class ClinicalHistoryCommandServiceImplTest {
 
         assertThrows(DataIntegrityViolationException.class, () -> service.handle(command(occurredAt)));
         verify(repository, never()).findEventByClientRequestId(any());
+    }
+
+    // ---- US-47: reprogramacion ----
+
+    @Test
+    void reschedulesTheScheduledEventUsingTodayFromTheClockAndSavesTheHistory() {
+        var existing = historyWithScheduledEvent();
+        var scheduled = existing.getEvents().getFirst();
+        when(repository.findByAnimalId(animalId)).thenReturn(Optional.of(existing));
+
+        var event = service.handle(new RescheduleScheduledEventCommand(animalId, scheduled.getId(), TODAY, "Reprogramada"));
+
+        verify(repository).save(existing);
+        assertSame(scheduled, event);
+        assertEquals(TODAY, event.getScheduledDate());
+        assertEquals("Reprogramada", event.getDescription());
+        assertEquals(SanitaryEventStatus.SCHEDULED, event.getStatus());
+    }
+
+    @Test
+    void reschedulingToADateBeforeTodayIsRejectedAndNothingIsSaved() {
+        var existing = historyWithScheduledEvent();
+        var scheduled = existing.getEvents().getFirst();
+        when(repository.findByAnimalId(animalId)).thenReturn(Optional.of(existing));
+
+        assertThrows(PastScheduledDateException.class,
+                () -> service.handle(new RescheduleScheduledEventCommand(animalId, scheduled.getId(), TODAY.minusDays(1), null)));
+
+        verify(repository, never()).save(any());
+        assertEquals(TODAY.plusDays(3), scheduled.getScheduledDate());
+    }
+
+    @Test
+    void reschedulingForAnAnimalWithoutHistoryIsNotFound() {
+        when(repository.findByAnimalId(animalId)).thenReturn(Optional.empty());
+
+        assertThrows(SanitaryEventNotFoundException.class,
+                () -> service.handle(new RescheduleScheduledEventCommand(animalId, UUID.randomUUID(), TODAY, null)));
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void reschedulingAnEventThatIsNoLongerScheduledIsRejectedAndNothingIsSaved() {
+        var existing = historyWithScheduledEvent();
+        var scheduled = existing.getEvents().getFirst();
+        existing.cancelScheduledEvent(scheduled.getId());
+        when(repository.findByAnimalId(animalId)).thenReturn(Optional.of(existing));
+
+        assertThrows(SanitaryEventNotScheduledException.class,
+                () -> service.handle(new RescheduleScheduledEventCommand(animalId, scheduled.getId(), TODAY.plusDays(5), null)));
+
+        verify(repository, never()).save(any());
     }
 }

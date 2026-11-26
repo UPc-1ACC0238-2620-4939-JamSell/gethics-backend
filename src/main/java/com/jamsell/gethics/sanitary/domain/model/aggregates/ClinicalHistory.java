@@ -84,6 +84,14 @@ public class ClinicalHistory {
         return event;
     }
 
+    /** US-47: solo un evento de ESTE historial (del animal indicado) puede reprogramarse; otro id es "no encontrado". */
+    public SanitaryEvent rescheduleScheduledEvent(UUID eventId, LocalDate newScheduledDate, String description, LocalDate today) {
+        var event = findEvent(eventId);
+        event.reschedule(newScheduledDate, description, today);
+        updatedAt = Instant.now();
+        return event;
+    }
+
     private SanitaryEvent findEvent(UUID eventId) {
         return events.stream()
                 .filter(e -> e.getId() != null && e.getId().equals(eventId))

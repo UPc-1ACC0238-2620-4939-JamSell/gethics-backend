@@ -148,4 +148,23 @@ public class SanitaryEvent {
         }
         this.status = SanitaryEventStatus.CANCELLED;
     }
+
+    /**
+     * US-47: cambia la fecha de ESTE evento programado sin cancelarlo ni crear otro. Sigue SCHEDULED, asi que el calendario
+     * y los recordatorios lo toman en su nueva fecha. Misma regla que al programar: la fecha no puede estar vencida. Sin
+     * {@code description} se mantiene la actual.
+     */
+    public void reschedule(LocalDate newScheduledDate, String description, LocalDate today) {
+        Objects.requireNonNull(newScheduledDate, "newScheduledDate");
+        if (status != SanitaryEventStatus.SCHEDULED) {
+            throw SanitaryEventNotScheduledException.forReschedule();
+        }
+        if (newScheduledDate.isBefore(Objects.requireNonNull(today, "today"))) {
+            throw new PastScheduledDateException();
+        }
+        this.scheduledDate = newScheduledDate;
+        if (description != null) {
+            this.description = description;
+        }
+    }
 }
