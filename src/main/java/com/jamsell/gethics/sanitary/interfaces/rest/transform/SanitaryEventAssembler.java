@@ -2,10 +2,12 @@ package com.jamsell.gethics.sanitary.interfaces.rest.transform;
 
 import com.jamsell.gethics.sanitary.domain.model.commands.CompleteScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.RegisterSanitaryEventCommand;
+import com.jamsell.gethics.sanitary.domain.model.commands.RescheduleScheduledEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.commands.ScheduleSanitaryEventCommand;
 import com.jamsell.gethics.sanitary.domain.model.entities.SanitaryEvent;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.CompleteSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.RegisterSanitaryEventResource;
+import com.jamsell.gethics.sanitary.interfaces.rest.resources.RescheduleSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.SanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.ScheduleSanitaryEventResource;
 
@@ -28,6 +30,10 @@ public final class SanitaryEventAssembler {
 
     public static CompleteScheduledEventCommand toCommand(UUID animalId, UUID eventId, CompleteSanitaryEventResource resource) {
         return new CompleteScheduledEventCommand(animalId, eventId, resource.occurredAt(), resource.description());
+    }
+
+    public static RescheduleScheduledEventCommand toCommand(UUID animalId, UUID eventId, RescheduleSanitaryEventResource resource) {
+        return new RescheduleScheduledEventCommand(animalId, eventId, resource.scheduledDate(), resource.description());
     }
 
     public static SanitaryEventResource toResource(SanitaryEvent event) {

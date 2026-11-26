@@ -5,6 +5,7 @@ import com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventCreat
 import com.jamsell.gethics.sanitary.domain.services.ClinicalHistoryCommandService;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.CompleteSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.RegisterSanitaryEventResource;
+import com.jamsell.gethics.sanitary.interfaces.rest.resources.RescheduleSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.SanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.resources.ScheduleSanitaryEventResource;
 import com.jamsell.gethics.sanitary.interfaces.rest.transform.SanitaryEventAssembler;
@@ -95,6 +96,25 @@ public class SanitaryEventController {
     @PostMapping("/{eventId}/cancel")
     public SanitaryEventResource cancelScheduledEvent(@PathVariable UUID animalId, @PathVariable UUID eventId) {
         var event = commandService.handle(new CancelScheduledEventCommand(animalId, eventId));
+        return SanitaryEventAssembler.toResource(event);
+    }
+
+    /** US-47: cambia la fecha (y opcionalmente las notas) del mismo evento programado; sigue SCHEDULED. */
+    @Operation(summary = "Reprogramar un evento programado",
+            description = "US-47: cambia la fecha programada (y, si se envian, las notas) de un evento pendiente sin cancelarlo "
+                    + "ni crear otro; sigue SCHEDULED y aparece en el calendario en su nueva fecha.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Evento reprogramado"),
+        @ApiResponse(responseCode = "400", description = "Fecha ausente o anterior a hoy, o descripcion demasiado larga"),
+        @ApiResponse(responseCode = "404", description = "El animal no tiene ese evento"),
+        @ApiResponse(responseCode = "409", description = "El evento no esta programado (ya completado o cancelado)")
+    })
+    @PostMapping("/{eventId}/reschedule")
+    public SanitaryEventResource rescheduleScheduledEvent(
+            @PathVariable UUID animalId,
+            @PathVariable UUID eventId,
+            @Valid @RequestBody RescheduleSanitaryEventResource resource) {
+        var event = commandService.handle(SanitaryEventAssembler.toCommand(animalId, eventId, resource));
         return SanitaryEventAssembler.toResource(event);
     }
 }
