@@ -170,4 +170,25 @@ class SanitaryCalendarPersistenceTest {
         assertEquals(List.of(atMin.getId()), returnedAmong(calendar(-4712, 1), atMin, atMax));
         assertEquals(List.of(atMax.getId()), returnedAmong(calendar(5_874_896, 12), atMin, atMax));
     }
+
+    // ---- US-46: eventos proximos (incluye los vencidos que siguen SCHEDULED) ----
+
+    @Autowired
+    SanitaryCalendarQueryRepositoryImpl calendarRepository;
+
+    @Test
+    void upcomingIncludesOverdueScheduledEventsAndExcludesLaterOrNonPendingOnes() {
+        var cow = history();
+        var overdue = cow.scheduleEvent(SanitaryEventType.VACCINATION, MARCH.minusDays(3), "Aftosa", SCHEDULED_ON);
+        var lastDay = cow.scheduleEvent(SanitaryEventType.CHECKUP, MARCH.plusDays(6), null, SCHEDULED_ON);
+        var outside = cow.scheduleEvent(SanitaryEventType.TREATMENT, MARCH.plusDays(7), null, SCHEDULED_ON);
+        var cancelled = cow.scheduleEvent(SanitaryEventType.TREATMENT, MARCH.plusDays(1), null, SCHEDULED_ON);
+        cancelled.cancel();
+        persist(cow);
+
+        var returned = calendarRepository.findScheduledBefore(MARCH.plusDays(7));
+
+        assertEquals(List.of(overdue.getId(), lastDay.getId()), returnedAmong(returned, overdue, lastDay, outside, cancelled));
+        assertTrue(returned.stream().allMatch(e -> e.getStatus() == SanitaryEventStatus.SCHEDULED));
+    }
 }
