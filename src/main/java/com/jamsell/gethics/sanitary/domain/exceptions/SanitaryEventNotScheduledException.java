@@ -13,4 +13,9 @@ public class SanitaryEventNotScheduledException extends RuntimeException {
     public static SanitaryEventNotScheduledException forCancellation() {
         return new SanitaryEventNotScheduledException("Solo un evento programado (SCHEDULED) puede cancelarse.");
     }
+
+    /** US-47: mismo 409, con el mensaje propio de la reprogramacion. */
+    public static SanitaryEventNotScheduledException forReschedule() {
+        return new SanitaryEventNotScheduledException("Solo un evento programado (SCHEDULED) puede reprogramarse.");
+    }
 }
