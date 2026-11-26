@@ -22,6 +22,14 @@ interface SanitaryEventJpaRepository extends JpaRepository<SanitaryEvent, UUID> 
             order by e.scheduledDate asc, e.createdAt asc""")
     List<SanitaryEvent> findScheduledBetween(@Param("from") LocalDate from, @Param("toExclusive") LocalDate toExclusive);
 
+    /** US-46: pendientes hasta el fin de la ventana de alerta, incluidos los que ya vencieron sin aplicarse. */
+    @Query("""
+            select e from SanitaryEvent e join fetch e.clinicalHistory
+            where e.status = com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventStatus.SCHEDULED
+              and e.scheduledDate < :toExclusive
+            order by e.scheduledDate asc, e.createdAt asc""")
+    List<SanitaryEvent> findScheduledBefore(@Param("toExclusive") LocalDate toExclusive);
+
     @Query("""
             select e from SanitaryEvent e join fetch e.clinicalHistory
             where e.type = com.jamsell.gethics.sanitary.domain.model.valueobjects.SanitaryEventType.VACCINATION

@@ -20,4 +20,9 @@ public class SanitaryCalendarQueryRepositoryImpl implements SanitaryCalendarQuer
     public List<SanitaryEvent> findScheduledBetween(LocalDate from, LocalDate toExclusive) {
         return jpaRepository.findScheduledBetween(from, toExclusive);
     }
+
+    @Override
+    public List<SanitaryEvent> findScheduledBefore(LocalDate toExclusive) {
+        return jpaRepository.findScheduledBefore(toExclusive);
+    }
 }
