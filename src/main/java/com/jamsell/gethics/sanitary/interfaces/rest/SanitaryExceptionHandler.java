@@ -2,6 +2,7 @@ package com.jamsell.gethics.sanitary.interfaces.rest;
 
 import com.jamsell.gethics.sanitary.domain.exceptions.FutureEventDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.InvalidCalendarPeriodException;
+import com.jamsell.gethics.sanitary.domain.exceptions.InvalidUpcomingWindowException;
 import com.jamsell.gethics.sanitary.domain.exceptions.PastScheduledDateException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotFoundException;
 import com.jamsell.gethics.sanitary.domain.exceptions.SanitaryEventNotScheduledException;
@@ -28,6 +29,11 @@ public class SanitaryExceptionHandler {
 
     @ExceptionHandler(InvalidCalendarPeriodException.class)
     public ResponseEntity<ErrorResource> handleInvalidPeriod(InvalidCalendarPeriodException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResource(ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidUpcomingWindowException.class)
+    public ResponseEntity<ErrorResource> handleInvalidUpcomingWindow(InvalidUpcomingWindowException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResource(ex.getMessage()));
     }
 

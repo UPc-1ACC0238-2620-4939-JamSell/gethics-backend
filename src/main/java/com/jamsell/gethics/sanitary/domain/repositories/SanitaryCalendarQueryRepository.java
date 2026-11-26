@@ -9,4 +9,10 @@ import java.util.List;
 public interface SanitaryCalendarQueryRepository {
     /** Eventos SCHEDULED con {@code from <= scheduledDate < toExclusive}, por fecha ascendente, con su historial ya cargado. */
     List<SanitaryEvent> findScheduledBetween(LocalDate from, LocalDate toExclusive);
+
+    /**
+     * US-46: eventos SCHEDULED con {@code scheduledDate < toExclusive}, incluidos los vencidos, por fecha ascendente, con
+     * su historial ya cargado.
+     */
+    List<SanitaryEvent> findScheduledBefore(LocalDate toExclusive);
 }
