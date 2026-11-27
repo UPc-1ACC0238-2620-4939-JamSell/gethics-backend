@@ -1,14 +1,17 @@
 package com.jamsell.gethics.iot.infrastructure.persistence.jpa.repositories;
 
 import com.jamsell.gethics.iot.domain.model.aggregates.Device;
+import com.jamsell.gethics.iot.domain.model.entities.SensorReading;
 import com.jamsell.gethics.iot.domain.model.valueobjects.DeviceStatus;
 import com.jamsell.gethics.iot.domain.model.valueobjects.SensorReadingPage;
 import com.jamsell.gethics.iot.domain.repositories.DeviceRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -52,8 +55,16 @@ public class DeviceRepositoryImpl implements DeviceRepository {
     }
 
     @Override
-    public SensorReadingPage findReadingsByDeviceId(UUID deviceId, int page, int size) {
-        var result = readingJpaRepository.findByDeviceId(deviceId, PageRequest.of(page, size, NEWEST_READINGS_FIRST));
+    public SensorReadingPage findReadingsByDeviceId(UUID deviceId, LocalDateTime from, LocalDateTime toExclusive,
+            int page, int size) {
+        Specification<SensorReading> spec = (root, query, cb) -> cb.equal(root.get("device").get("id"), deviceId);
+        if (from != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.<LocalDateTime>get("recordedAt"), from));
+        }
+        if (toExclusive != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThan(root.<LocalDateTime>get("recordedAt"), toExclusive));
+        }
+        var result = readingJpaRepository.findAll(spec, PageRequest.of(page, size, NEWEST_READINGS_FIRST));
         return new SensorReadingPage(result.getContent(), result.getNumber(), result.getSize(),
                 result.getTotalElements(), result.getTotalPages());
     }

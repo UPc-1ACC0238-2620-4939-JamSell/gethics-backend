@@ -21,6 +21,7 @@ import com.jamsell.gethics.iot.domain.model.valueobjects.SensorReadingPage;
 import com.jamsell.gethics.iot.domain.services.DeviceCommandService;
 import com.jamsell.gethics.iot.domain.services.DeviceQueryService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -225,6 +226,114 @@ class DeviceControllerTest {
     @Test
     void listReadingsWithAnIdThatIsNotAUuidReturns400() throws Exception {
         mockMvc.perform(get(URL + "/MX-DEV-1/readings"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").isNotEmpty());
+
+        verifyNoInteractions(queryService);
+    }
+
+    // --- US-48: filtro por rango de fechas ---
+
+    @Test
+    void listReadingsWithFromAndToPassesTheDaysAndKeepsTheResponseShape() throws Exception {
+        var device = Device.link(new LinkDeviceCommand(UUID.randomUUID(), "MX-DEV-1"), NOW);
+        var reading = device.registerReading("temperature", new BigDecimal("38.2"), NOW, NOW);
+        var deviceId = UUID.randomUUID();
+        when(queryService.handle(any(GetDeviceReadingsQuery.class)))
+                .thenReturn(new SensorReadingPage(List.of(reading), 0, 20, 1, 1));
+
+        mockMvc.perform(get(URL + "/" + deviceId + "/readings").param("from", "2042-06-07").param("to", "2042-06-07"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].metric").value("temperature"))
+                .andExpect(jsonPath("$.content[0].value").value(38.2))
+                .andExpect(jsonPath("$.content[0].recordedAt").value("2042-06-07T08:00:00"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1));
+
+        verify(queryService).handle(new GetDeviceReadingsQuery(deviceId, 0, 20, LocalDate.of(2042, 6, 7),
+                LocalDate.of(2042, 6, 7)));
+    }
+
+    @Test
+    void listReadingsWithOnlyFromOrOnlyToLeavesTheOtherLimitOpen() throws Exception {
+        var deviceId = UUID.randomUUID();
+        when(queryService.handle(any(GetDeviceReadingsQuery.class)))
+                .thenReturn(new SensorReadingPage(List.of(), 0, 20, 0, 0));
+
+        mockMvc.perform(get(URL + "/" + deviceId + "/readings").param("from", "2042-06-01"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get(URL + "/" + deviceId + "/readings").param("to", "2042-06-07"))
+                .andExpect(status().isOk());
+
+        verify(queryService).handle(new GetDeviceReadingsQuery(deviceId, 0, 20, LocalDate.of(2042, 6, 1), null));
+        verify(queryService).handle(new GetDeviceReadingsQuery(deviceId, 0, 20, null, LocalDate.of(2042, 6, 7)));
+    }
+
+    @Test
+    void listReadingsWithAnEmptyRangeResultReturns200WithAnEmptyPage() throws Exception {
+        when(queryService.handle(any(GetDeviceReadingsQuery.class)))
+                .thenReturn(new SensorReadingPage(List.of(), 0, 20, 0, 0));
+
+        mockMvc.perform(get(URL + "/" + UUID.randomUUID() + "/readings").param("from", "2000-01-01")
+                        .param("to", "2000-01-02"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void listReadingsWithFromAfterToReturns400WithoutCallingTheService() throws Exception {
+        mockMvc.perform(get(URL + "/" + UUID.randomUUID() + "/readings").param("from", "2042-06-08")
+                        .param("to", "2042-06-07"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("El parametro from no puede ser posterior a to."));
+
+        verifyNoInteractions(queryService);
+    }
+
+    @Test
+    void listReadingsWithAMalformedDateReturns400WithoutCallingTheService() throws Exception {
+        var url = URL + "/" + UUID.randomUUID() + "/readings";
+
+        for (var bad : new String[] {"07-06-2042", "2042/06/07", "2042-13-01", "2042-02-30", "ayer", "2042-06-07T10:00:00"}) {
+            mockMvc.perform(get(url).param("from", bad))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Parametro invalido: from"));
+            mockMvc.perform(get(url).param("to", bad))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Parametro invalido: to"));
+        }
+
+        verifyNoInteractions(queryService);
+    }
+
+    @Test
+    void listReadingsWithABlankDateIsTreatedAsAbsent() throws Exception {
+        var deviceId = UUID.randomUUID();
+        when(queryService.handle(any(GetDeviceReadingsQuery.class)))
+                .thenReturn(new SensorReadingPage(List.of(), 0, 20, 0, 0));
+
+        mockMvc.perform(get(URL + "/" + deviceId + "/readings").param("from", "").param("to", ""))
+                .andExpect(status().isOk());
+
+        verify(queryService).handle(new GetDeviceReadingsQuery(deviceId, 0, 20));
+    }
+
+    @Test
+    void listReadingsOfAnUnknownDeviceWithARangeReturns404() throws Exception {
+        var deviceId = UUID.randomUUID();
+        when(queryService.handle(any(GetDeviceReadingsQuery.class))).thenThrow(new DeviceNotFoundException(deviceId));
+
+        mockMvc.perform(get(URL + "/" + deviceId + "/readings").param("from", "2042-06-01").param("to", "2042-06-07"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No se encontro el dispositivo " + deviceId + "."));
+    }
+
+    @Test
+    void listReadingsWithAnInvalidIdAndARangeReturns400() throws Exception {
+        mockMvc.perform(get(URL + "/MX-DEV-1/readings").param("from", "2042-06-01").param("to", "2042-06-07"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").isNotEmpty());
 
