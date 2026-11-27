@@ -11,12 +11,15 @@ import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingPageResour
 import com.jamsell.gethics.iot.interfaces.rest.resources.SensorReadingResource;
 import com.jamsell.gethics.iot.interfaces.rest.transform.DeviceAssembler;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -90,16 +93,25 @@ public class DeviceController {
      * {@code content} vacio (Escenario 2); si el dispositivo no existe, 404.
      */
     @Operation(summary = "Consultar las lecturas de un dispositivo",
-            description = "US-37: lecturas paginadas, de la mas reciente a la mas antigua. Sin lecturas devuelve 200 con content vacio.")
+            description = "US-37: lecturas paginadas, de la mas reciente a la mas antigua. Sin lecturas devuelve 200 con content vacio. "
+                    + "US-48: los parametros opcionales from y to (yyyy-MM-dd) filtran por dia de calendario de recordedAt; "
+                    + "ambos limites son inclusivos (from desde las 00:00:00 de ese dia, to hasta las 23:59:59.999999999 de ese dia), "
+                    + "from=to devuelve un solo dia y cada uno puede omitirse (rango abierto). Sin fechas el comportamiento es el de US-37. "
+                    + "recordedAt no lleva zona horaria: el dia se compara tal cual, sin conversion. "
+                    + "Ejemplos: /api/v1/devices/{id}/readings?from=2042-06-01&to=2042-06-07 | ?from=2042-06-01 | ?to=2042-06-07.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Pagina de lecturas"),
-        @ApiResponse(responseCode = "400", description = "page negativo o size fuera del rango permitido"),
+        @ApiResponse(responseCode = "200", description = "Pagina de lecturas (content vacio si no hay lecturas en el rango)"),
+        @ApiResponse(responseCode = "400", description = "page negativo, size fuera de rango, from/to con formato distinto de yyyy-MM-dd, from posterior a to o id que no es UUID"),
         @ApiResponse(responseCode = "404", description = "El dispositivo no existe")
     })
     @GetMapping("/{id}/readings")
     public SensorReadingPageResource listReadings(@PathVariable UUID id,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return DeviceAssembler.toResource(queryService.handle(new GetDeviceReadingsQuery(id, page, size)));
+            @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Dia inicial inclusivo, formato yyyy-MM-dd. Opcional.", example = "2042-06-01")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "Dia final inclusivo, formato yyyy-MM-dd. Opcional.", example = "2042-06-07")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return DeviceAssembler.toResource(queryService.handle(new GetDeviceReadingsQuery(id, page, size, from, to)));
     }
 }

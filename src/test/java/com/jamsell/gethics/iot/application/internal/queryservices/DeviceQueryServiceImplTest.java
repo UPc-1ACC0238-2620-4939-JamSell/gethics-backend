@@ -17,6 +17,7 @@ import com.jamsell.gethics.iot.domain.model.queries.GetDevicesByOwnerQuery;
 import com.jamsell.gethics.iot.domain.model.valueobjects.SensorReadingPage;
 import com.jamsell.gethics.iot.domain.repositories.DeviceRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -58,7 +59,7 @@ class DeviceQueryServiceImplTest {
         var reading = device.registerReading("temperature", new BigDecimal("36.5"), null, LocalDateTime.now());
         var page = new SensorReadingPage(List.of(reading), 1, 10, 11, 2);
         when(repository.existsById(deviceId)).thenReturn(true);
-        when(repository.findReadingsByDeviceId(deviceId, 1, 10)).thenReturn(page);
+        when(repository.findReadingsByDeviceId(deviceId, null, null, 1, 10)).thenReturn(page);
 
         var result = service.handle(new GetDeviceReadingsQuery(deviceId, 1, 10));
 
@@ -69,7 +70,7 @@ class DeviceQueryServiceImplTest {
     void returnsAnEmptyPageWhenAnExistingDeviceHasNoReadings() {
         var deviceId = UUID.randomUUID();
         when(repository.existsById(deviceId)).thenReturn(true);
-        when(repository.findReadingsByDeviceId(deviceId, 0, 20)).thenReturn(new SensorReadingPage(List.of(), 0, 20, 0, 0));
+        when(repository.findReadingsByDeviceId(deviceId, null, null, 0, 20)).thenReturn(new SensorReadingPage(List.of(), 0, 20, 0, 0));
 
         var result = service.handle(new GetDeviceReadingsQuery(deviceId, 0, 20));
 
@@ -84,6 +85,55 @@ class DeviceQueryServiceImplTest {
 
         assertThrows(DeviceNotFoundException.class, () -> service.handle(new GetDeviceReadingsQuery(deviceId, 0, 20)));
 
-        verify(repository, never()).findReadingsByDeviceId(any(), anyInt(), anyInt());
+        verify(repository, never()).findReadingsByDeviceId(any(), any(), any(), anyInt(), anyInt());
+    }
+
+    // --- US-48: el rango de dias llega al repositorio como [from 00:00, to + 1 dia 00:00) ---
+
+    @Test
+    void passesTheDayRangeToTheRepositoryAsInclusiveStartAndExclusiveEnd() {
+        var deviceId = UUID.randomUUID();
+        var page = new SensorReadingPage(List.of(), 0, 20, 0, 0);
+        when(repository.existsById(deviceId)).thenReturn(true);
+        when(repository.findReadingsByDeviceId(deviceId, LocalDateTime.of(2042, 6, 1, 0, 0),
+                LocalDateTime.of(2042, 6, 8, 0, 0), 0, 20)).thenReturn(page);
+
+        var result = service.handle(new GetDeviceReadingsQuery(deviceId, 0, 20, LocalDate.of(2042, 6, 1),
+                LocalDate.of(2042, 6, 7)));
+
+        assertEquals(page, result);
+    }
+
+    @Test
+    void aSingleDayRangeCoversThatWholeDay() {
+        var deviceId = UUID.randomUUID();
+        when(repository.existsById(deviceId)).thenReturn(true);
+        var day = LocalDate.of(2042, 6, 7);
+
+        service.handle(new GetDeviceReadingsQuery(deviceId, 0, 20, day, day));
+
+        verify(repository).findReadingsByDeviceId(deviceId, LocalDateTime.of(2042, 6, 7, 0, 0),
+                LocalDateTime.of(2042, 6, 8, 0, 0), 0, 20);
+    }
+
+    @Test
+    void anOpenEndedRangeLeavesTheMissingLimitNull() {
+        var deviceId = UUID.randomUUID();
+        when(repository.existsById(deviceId)).thenReturn(true);
+
+        service.handle(new GetDeviceReadingsQuery(deviceId, 0, 20, LocalDate.of(2042, 6, 1), null));
+        service.handle(new GetDeviceReadingsQuery(deviceId, 0, 20, null, LocalDate.of(2042, 6, 7)));
+
+        verify(repository).findReadingsByDeviceId(deviceId, LocalDateTime.of(2042, 6, 1, 0, 0), null, 0, 20);
+        verify(repository).findReadingsByDeviceId(deviceId, null, LocalDateTime.of(2042, 6, 8, 0, 0), 0, 20);
+    }
+
+    @Test
+    void anUnknownDeviceWithAnInvalidRangeStillReturnsNotFound() {
+        var deviceId = UUID.randomUUID();
+        when(repository.existsById(deviceId)).thenReturn(false);
+
+        assertThrows(DeviceNotFoundException.class, () -> service.handle(new GetDeviceReadingsQuery(deviceId, 0, 20,
+                LocalDate.of(2042, 6, 1), LocalDate.of(2042, 6, 7))));
     }
 }

@@ -2,11 +2,10 @@ package com.jamsell.gethics.iot.infrastructure.persistence.jpa.repositories;
 
 import com.jamsell.gethics.iot.domain.model.entities.SensorReading;
 import java.util.UUID;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-interface SensorReadingJpaRepository extends JpaRepository<SensorReading, UUID> {
-
-    Page<SensorReading> findByDeviceId(UUID deviceId, Pageable pageable);
+// Specification: el filtro de fechas es opcional en cada extremo y se resuelve en el WHERE de la consulta.
+interface SensorReadingJpaRepository extends JpaRepository<SensorReading, UUID>,
+        JpaSpecificationExecutor<SensorReading> {
 }

@@ -33,6 +33,7 @@ public class DeviceQueryServiceImpl implements DeviceQueryService {
         if (!repository.existsById(query.deviceId())) {
             throw new DeviceNotFoundException(query.deviceId());
         }
-        return repository.findReadingsByDeviceId(query.deviceId(), query.page(), query.size());
+        return repository.findReadingsByDeviceId(query.deviceId(), query.fromInclusive(), query.toExclusive(),
+                query.page(), query.size());
     }
 }
